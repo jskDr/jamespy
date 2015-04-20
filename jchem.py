@@ -31,7 +31,7 @@ def show_mol( smiles = 'C1=CC=CC=C1'):
 	"""
 	m = Chem.MolFromSmiles( smiles)
 	tmp = AllChem.Compute2DCoords( m)
-	f_name = '{}.png'.format( smiles)
+	f_name = '{}.png'.format( 'smiles')
 	Draw.MolToFile(m, f_name)
 
 	img_m = plt.imread( f_name)
@@ -436,6 +436,108 @@ def fpM_pat( xM):
 	plt.ylabel('Aggreation number')
 	plt.show()
 
+def gen_input_files( A, yV):
+	"""
+	Input files of ann_in.data and ann_run.dat are gerneated.
+	The files are used in ann_aq.c (./ann_aq) 
+	* Input: A is matrix, yV is vector
+	"""
+	# in file
+	no_of_set = A.shape[0]
+	no_of_input = A.shape[1]
+	const_no_of_output = 1 # Now, only 1 output is considerd.
+	with open("ann_in.data", "w") as f:
+		f.write( "%d %d %d\n" % (no_of_set, no_of_input, const_no_of_output))
+		for ix in range( no_of_set):
+			for iy in range( no_of_input):
+				f.write( "{} ".format(A[ix,iy]))
+			f.write( "\n{}\n".format( yV[ix,0]))
+		print("ann_in.data is saved")
+
+	# run file 
+	with open("ann_run.data", "w") as f:
+		#In 2015-4-9, the following line is modified since it should not be 
+		#the same to the associated line in ann_in data but it does not include the output length. 
+		f.write( "%d %d\n" % (no_of_set, no_of_input))
+		for ix in range( no_of_set):
+			for iy in range( no_of_input):
+				f.write( "{} ".format(A[ix,iy]))
+			f.write( "\n") 
+		print("ann_run.data is saved")
+
+def gen_input_files_valid( At, yt, Av):
+	"""
+	Validation is also considerd.
+	At and yt are for training while Av, yv are for validation.
+	Input files of ann_in.data and ann_run.dat are gerneated.
+	The files are used in ann_aq.c (./ann_aq) 
+	* Input: At, Av is matrix, yt, yv is vector
+	"""
+
+	const_no_of_output = 1 # Now, only 1 output is considerd.
+
+	# in file
+	no_of_set = At.shape[0]
+	no_of_input = At.shape[1]
+	with open("ann_in.data", "w") as f:
+		f.write( "%d %d %d\n" % (no_of_set, no_of_input, const_no_of_output))
+		for ix in range( no_of_set):
+			for iy in range( no_of_input):
+				f.write( "{} ".format(At[ix,iy]))
+			f.write( "\n{}\n".format( yt[ix,0]))
+		print("ann_in.data with {0} sets, {1} inputs is saved".format( no_of_set, no_of_input))
+
+	# run file 
+	no_of_set = Av.shape[0]
+	no_of_input = Av.shape[1]
+	with open("ann_run.data", "w") as f:
+		f.write( "%d %d\n" % (no_of_set, no_of_input))
+		for ix in range( no_of_set):
+			for iy in range( no_of_input):
+				f.write( "{} ".format(Av[ix,iy]))
+			f.write( "\n") 
+		print("ann_run.data with {0} sets, {1} inputs is saved".format( no_of_set, no_of_input))
+
+
+def get_valid_mode_data( aM, yV, rate = 3, more_train = True, center = None):
+	"""
+	Data is organized for validation. The part of them becomes training and the other becomes validation.
+	The flag of 'more_train' represents tranin data is bigger than validation data, and vice versa.
+	"""
+	ix = range( len( yV))
+	if center == None:
+		center = int(rate/2)
+	if more_train:
+		ix_t = filter( lambda x: x%rate != center, ix)
+		ix_v = filter( lambda x: x%rate == center, ix)
+	else:
+		ix_t = filter( lambda x: x%rate == center, ix)
+		ix_v = filter( lambda x: x%rate != center, ix)
+
+	aM_t, yV_t = aM[ix_t, :], yV[ix_t, 0]
+	aM_v, yV_v = aM[ix_v, :], yV[ix_v, 0]
+
+	return aM_t, yV_t, aM_v, yV_v	
+
+def estimate_accuracy( yv, yv_ann, disp = False):
+	"""
+	The two column matrix is compared in this function and 
+	It calculates RMSE and r_sqr.
+	"""
+	e = yv - yv_ann
+	se = e.T * e
+	RMSE = np.sqrt( se / len(e))
+
+	# print "RMSE =", RMSE
+	y_unbias = yv - np.mean( yv)
+	s_y_unbias = y_unbias.T * y_unbias
+	r_sqr = 1 - se/s_y_unbias
+
+	if disp:
+		print "r_sqr = {0}, RMSE = {1}".format( r_sqr[0,0], RMSE[0,0])
+
+	return r_sqr[0,0], RMSE[0,0]
+
 class FF_W:
 	"""
 	It calculrates the weight vector using MLR 
@@ -459,7 +561,7 @@ class FF_W:
 		x1 = Chem.MolFromSmiles( x)
 		return AllChem.GetMorganFingerprintAsBitVect( x1, self.rad, self.nBits)
 
-	def getM( self, X, Y, nBits_Max_val = None):
+	def _getM_r0( self, X, Y, nBits_Max_val = None):
 		if self.smiles_clean:
 			X0, Y0 = clean_smiles_vec_io( X, Y)
 		else:
@@ -493,7 +595,57 @@ class FF_W:
 
 		X6, Y2 = np.mat( X5), np.mat( Y1).T
 
-		return X5, Y2		
+		return X6, Y2		
+
+	def getM( self, X, Y, nBits_Max_val = None):
+		"""
+		Fingerprint matrix is generated.
+		Regularization is considered depending on the flag. 
+		"""
+		if self.smiles_clean:
+			X0, Y0 = clean_smiles_vec_io( X, Y)
+		else:
+			X0, Y0 = X, Y
+
+		# self.clean_X = X0
+
+		if self.N is None:
+			N = len( X0)
+
+		X1, Y1 = X0[:N], Y0[:N]	
+
+		# fingerprint vectors
+		X2 = [self.gff(x) for x in X1] 
+
+		# vector of fingerprint binary string
+		X3 = [bin(int(x.ToBinary().encode("hex"), 16)) for x in X2] 
+
+		# Convert each binary string to binary character vectors
+		if self.nBits_Max: # the maximum size is used for nBits
+			if nBits_Max_val== None:
+				len_X3 = map( len, [x[2:] for x in X3])
+				nBits_Max_val = max( len_X3)
+			X4 = [list( jutil.sleast(x[2:], nBits_Max_val)) for x in X3]
+		else:
+			X4 = [list( jutil.sleast(x[2:], self.nBits)) for x in X3]
+
+		# Convert character (single element string)	to integer for computation
+		if self.bnbp == 'bp': #bipolar input generation
+			X5 = [ map( jutil.int_bp, x) for x in X4]
+		elif self.bnbp == 'bn_reg':
+			X5_tmp = [ map( float, x) for x in X4]
+			X5 = []
+			for x in X5_tmp:
+				x_sum = np.sum(x)
+				X5.append( map( lambda x_i: x_i / x_sum, x))
+
+		else: #binary case
+			X5 = [ map( int, x) for x in X4]
+
+		X6, Y2 = np.mat( X5), np.mat( Y1).T
+
+		return X6, Y2		
+
 
 	def getw( self, smiles_vec, property_vec):
 		"""
@@ -555,6 +707,7 @@ class FF_W:
 			X, y = self.getM( smiles_vec, property_vec, nBits_Max_val = len(w))
 		else:
 			X, y = self.getM( smiles_vec, property_vec)
+
 		# print np.shape( X), np.shape( y)
 
 		# w = np.linalg.pinv( X) * y
@@ -589,7 +742,6 @@ class FF_W:
 		#===============================================
 
 		# print np.shape( X), np.shape( y), np.shape( y_calc)
-
 		return X, y, y_calc
 
 
@@ -636,6 +788,153 @@ class FF_W:
 		X_v, Y_v = X[1::4], Y[1::4]  
 
 		w = self.getw( X_train, Y_train) # traning with half of data set
-		xM, yV, calc_yV = self.validw( X_v, Y_v, w) #validation the other half of data set
+		#xM, yV, calc_yV = self.validw( X_v, Y_v, w) #validation the other half of data set
+		# The final output data is generated fro all input data including both traning and validation data
+		self.validw( X_v, Y_v, w) #validation the other half of data set
+		xM, yV, calc_yV = self.validw( X, Y, w)
 
 		return w, xM, yV, calc_yV
+
+	def train_valid2(self, X, Y):
+		"It trains and validates modeling."
+
+		#75% data will be used for modeling - 0, 2, 3 of 4 step elements
+		X_train, Y_train = [], []
+		for ii in jutil.prange( [0, 2], 0, len( X), 4):
+			X_train.append( X[ii])
+			Y_train.append( Y[ii])
+		# Define validation sequence - 25% of 2nd of 4 element collection
+		X_v, Y_v = [], []
+		for ii in jutil.prange( [1, 3], 0, len( X), 4):
+			X_v.append( X[ii])
+			Y_v.append( Y[ii])
+
+		w = self.getw( X_train, Y_train) # traning with half of data set
+		print("Partial data validation")
+		self.validw( X_v, Y_v, w) #validation the other half of data set
+		print("Whole data vadidation")
+		xM, yV, calc_yV = self.validw( X, Y, w)
+
+		return w, xM, yV, calc_yV
+
+	def train_valid_A( self, aM, yV):
+
+		ix = range( len( yV))
+		ix_t = filter( lambda x: x%3 == 0, ix)
+		ix_v = filter( lambda x: x%3 != 0, ix)
+
+		xMs_t = aM[ix_t, :]
+		yVs_t = yV[ix_t, 0]
+		w = np.linalg.pinv( xMs_t)*yVs_t
+
+		yVs_t_calc = xMs_t * w
+		e_t = yVs_t - yVs_t_calc
+		#print "e(train) = ", e_t.T  
+		RMSE = np.sqrt(e_t.T*e_t / len(e_t))
+		print "RMSE(train) = ", RMSE
+
+		plt.figure()
+		plt.plot( yVs_t, label = 'Original')
+		plt.plot( yVs_t_calc, label = 'Prediction')
+		plt.legend()
+		plt.grid()
+		plt.title('Training')
+		plt.show()		
+
+		xMs_v = aM[ix_v, :]
+		yVs_v = yV[ix_v, 0]
+		yVs_v_calc = xMs_v * w
+
+		e_v = yVs_v - yVs_v_calc
+		#print e_v
+		#print "yVs_v =", yVs_v.T 
+		#print "yVs_v_calc =", yVs_v_calc.T 
+		#print "e(valid) = ", e_v.T    
+		RMSE = np.sqrt(e_v.T*e_v / len(e_v))
+		print "RMSE(valid) = ", RMSE
+
+		plt.figure()
+		plt.plot( yVs_v, label = 'Original')
+		plt.plot( yVs_v_calc, label = 'Prediction')
+		plt.legend()
+		plt.grid()
+		plt.title('Validation')
+		plt.show()
+
+		print "All results"
+		yV_calc = aM * w
+		plt.figure()
+		plt.plot( yV, label = 'Original')
+		plt.plot( yV_calc, label = 'Prediction')
+		plt.title( "All results")
+		plt.legend()
+		plt.show()
+
+		return w
+
+	def train_valid_rate( self, aM, yV, rate = 3, more_train = True):
+
+		ix = range( len( yV))
+
+		if more_train:
+			ix_t = filter( lambda x: x%rate != int(rate/2), ix)
+			ix_v = filter( lambda x: x%rate == int(rate/2), ix)
+		else:
+			ix_t = filter( lambda x: x%rate == int(rate/2), ix)
+			ix_v = filter( lambda x: x%rate != int(rate/2), ix)
+
+		xMs_t = aM[ix_t, :]
+		yVs_t = yV[ix_t, 0]
+		w = np.linalg.pinv( xMs_t)*yVs_t
+
+		yVs_t_calc = xMs_t * w
+		e_t = yVs_t - yVs_t_calc
+		#print "e(train) = ", e_t.T  
+		RMSE = np.sqrt(e_t.T*e_t / len(e_t))
+		#print "RMSE(train) = ", RMSE
+		estimate_accuracy( yVs_t, yVs_t_calc, disp = True)
+
+		plt.figure()
+		plt.plot( yVs_t, label = 'Original')
+		plt.plot( yVs_t_calc, label = 'Prediction')
+		plt.legend()
+		plt.grid()
+		plt.title('Training')
+		plt.show()		
+
+		xMs_v = aM[ix_v, :]
+		yVs_v = yV[ix_v, 0]
+		yVs_v_calc = xMs_v * w
+
+		e_v = yVs_v - yVs_v_calc
+		#print e_v
+		#print "yVs_v =", yVs_v.T 
+		#print "yVs_v_calc =", yVs_v_calc.T 
+		#print "e(valid) = ", e_v.T    
+		RMSE = np.sqrt(e_v.T*e_v / len(e_v))
+		#print "RMSE(valid) = ", RMSE
+		estimate_accuracy( yVs_v, yVs_v_calc, disp = True)
+
+		plt.figure()
+		plt.plot( yVs_v, label = 'Original')
+		plt.plot( yVs_v_calc, '.-', label = 'Prediction')
+		plt.legend()
+		plt.grid()
+		plt.title('Validation')
+		plt.show()
+
+		print "All results"
+		yV_calc = aM * w
+		estimate_accuracy( yV, yV_calc, disp = True)
+		plt.figure()
+		plt.plot( yV, label = 'Original')
+		plt.plot( yV_calc, '.-', label = 'Prediction')
+		plt.title( "All results")
+		plt.legend()
+		plt.show()
+
+		return w
+
+	#def get_clean_X(self):
+	#	return self.clean_X
+
