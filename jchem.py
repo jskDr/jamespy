@@ -10,7 +10,7 @@ import pandas as pd
 # This is James Sungjin Kim's library
 import jutil
 
-def show_mol( smiles = 'C1=CC=CC=C1'):
+def _show_mol_r0( smiles = 'C1=CC=CC=C1', name_tag = False):
 	"""
 	This function shows the molecule defined by smiles code.
 	The procedure follows:
@@ -29,6 +29,10 @@ def show_mol( smiles = 'C1=CC=CC=C1'):
 
 	Input: smiles code
 	"""
+
+	if name_tag:
+		print smiles
+
 	m = Chem.MolFromSmiles( smiles)
 	tmp = AllChem.Compute2DCoords( m)
 	f_name = '{}.png'.format( 'smiles')
@@ -37,6 +41,45 @@ def show_mol( smiles = 'C1=CC=CC=C1'):
 	img_m = plt.imread( f_name)
 	plt.imshow( img_m)
 	plt.show()
+
+def show_mol( smiles = 'C1=CC=CC=C1', name_tag = False, idx = None):
+	"""
+	This function shows the molecule defined by smiles code.
+	The procedure follows:
+	- 
+	First, benzene can be defined as follows. 
+    Before defining molecule, the basic library of rdkit can be loaded using the import command.
+
+    Second, the 2D coordination of the molecule can be calculated. 
+    For coordination calculation, AllChem sub-tool should be included.
+
+	Third, the molecular graph is drawn and save it 
+	so as to see in the picture manipulation tool. 
+	To use Draw, we must include Draw tool from rdkit.Chem.
+
+	Then,  it is time to load png file and show the image on screen.
+
+	Input: smiles code
+
+	E.g.,
+	map( lambda xx: jchem.show_mol( xx[1], name_tag = True, idx = xx[0] + 1), enumerate(mol_smiles_list))
+	"""
+
+	if name_tag:
+		if idx:
+			print idx, smiles
+		else:
+			print smiles
+
+	m = Chem.MolFromSmiles( smiles)
+	tmp = AllChem.Compute2DCoords( m)
+	f_name = '{}.png'.format( 'smiles')
+	Draw.MolToFile(m, f_name)
+
+	img_m = plt.imread( f_name)
+	plt.imshow( img_m)
+	plt.show()
+
 
 def calc_corr( smilesArr, radius = 2, nBits = 1024):
 	ms_mid = [Chem.MolFromSmiles( m_sm) for m_sm in smilesArr]	
@@ -168,6 +211,34 @@ def clean_smiles_vec_io( sv, out):
 	# print "Vector size becomes: {0} --> {1}".format( len(sv), len(new_sv))
 	return new_sv, new_out
 
+def _clean_fp_M_r0( xM):
+	"""
+	1. Zero sum column vectors will be removed.
+	2. All one column vectors wiil be also removed.
+	"""
+	xM_clean = []
+	xM_sum = np.sum( xM, 0)
+	for iy in range( xM.shape[1]):
+		if xM_sum and xM_sum < xM.shape[0]:
+			xM_column = xM[:,iy].T.tolist()[0]
+			xM_clean.append( xM_column)
+	return xM_clean
+
+def clean_fp_M( xM):
+	"""
+	1. Zero sum column vectors will be removed.
+	2. All one column vectors wiil be also removed.
+	"""
+	#xM_clean = np.copy( xM)
+	iy_list = []
+	xM_sum = np.sum( xM, 0)
+	for iy in range( xM.shape[1]):
+		if xM_sum[0,iy] == 0 or xM_sum[0,iy] == xM.shape[0]:
+			#print 'deleted: ', iy
+			iy_list.append( iy)	
+	xM_clean = np.delete(xM, iy_list, 1)
+	return xM_clean
+
 def gff( smiles = 'c1ccccc1O', rad = 2, nBits = 1024):
 	"It generates fingerprint from smiles code"
 	x = Chem.MolFromSmiles( smiles)
@@ -213,6 +284,9 @@ def gff_binlist( smiles_vec, rad = 2, nBits = 1024):
 	"""
 	return [ map( int, list( jutil.sleast(x[2:], nBits))) for x in ff_bin]
 
+def gfp_binlist( smiles_vec, rad = 4, nBits = 1024):
+	gff_binlist( smiles_vec, rad = rad, nBits = nBits)
+
 def gff_binlist_bnbp( smiles_vec, rad = 2, nBits = 1024, bnbp = 'bn'):
 	"""
 	It generates a binary list of fingerprint vector from a smiles code vector.
@@ -232,7 +306,11 @@ def gff_binlist_bnbp( smiles_vec, rad = 2, nBits = 1024, bnbp = 'bn'):
 
 def gff_M( smiles_vec, rad = 2, nBits = 1024):
 	"It generated a binary matrix from a smiles code vecor."
-	return np.mat(gff_binlist( smiles_vec, rad, nBits))
+	return np.mat(gff_binlist( smiles_vec, rad = rad, nBits = nBits))
+
+def gfp_M( smiles_vec, rad = 4, nBits = 1024):
+	"It generated a binary matrix from a smiles code vecor."
+	return np.mat(gff_binlist( smiles_vec, rad = rad, nBits = nBits))
 
 def gff_M_bnbp( smiles_vec, rad = 2, nBits = 1024, bnbp = 'bn'):
 	"It generated a binary matrix from a smiles code vecor."
@@ -316,8 +394,10 @@ def calc_tm_dist_int( A_int, B_int):
 	c = C_str.count('1')
 
 	# print a, b, c
-
-	tm_dist = float(c) / float( a + b - c)
+	if a == 0 and b == 0:
+		tm_dist = 1
+	else:
+		tm_dist = float(c) / float( a + b - c)
 
 	return tm_dist
 
@@ -498,6 +578,26 @@ def gen_input_files_valid( At, yt, Av):
 			f.write( "\n") 
 		print("ann_run.data with {0} sets, {1} inputs is saved".format( no_of_set, no_of_input))
 
+
+def get_valid_mode_output( aV, yV, rate = 3, more_train = True, center = None):
+	"""
+	Data is organized for validation. The part of them becomes training and the other becomes validation.
+	The flag of 'more_train' represents tranin data is bigger than validation data, and vice versa.
+	"""
+	ix = range( len( yV))
+	if center == None:
+		center = int(rate/2)
+	if more_train:
+		ix_t = filter( lambda x: x%rate != center, ix)
+		ix_v = filter( lambda x: x%rate == center, ix)
+	else:
+		ix_t = filter( lambda x: x%rate == center, ix)
+		ix_v = filter( lambda x: x%rate != center, ix)
+
+	aM_t, yV_t = aV[ix_t, 0], yV[ix_t, 0]
+	aM_v, yV_v = aV[ix_v, 0], yV[ix_v, 0]
+
+	return aM_t, yV_t, aM_v, yV_v	
 
 def get_valid_mode_data( aM, yV, rate = 3, more_train = True, center = None):
 	"""
