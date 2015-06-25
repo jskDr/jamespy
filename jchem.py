@@ -42,7 +42,50 @@ def _show_mol_r0( smiles = 'C1=CC=CC=C1', name_tag = False):
 	plt.imshow( img_m)
 	plt.show()
 
-def show_mol( smiles = 'C1=CC=CC=C1', name_tag = False, idx = None):
+def show_mol( smiles = 'C1=CC=CC=C1', name_tag = False, idx = None, disp = False):
+	"""
+	This function shows the molecule defined by smiles code.
+	The procedure follows:
+	- 
+	First, benzene can be defined as follows. 
+    Before defining molecule, the basic library of rdkit can be loaded using the import command.
+
+    Second, the 2D coordination of the molecule can be calculated. 
+    For coordination calculation, AllChem sub-tool should be included.
+
+	Third, the molecular graph is drawn and save it 
+	so as to see in the picture manipulation tool. 
+	To use Draw, we must include Draw tool from rdkit.Chem.
+
+	Then,  it is time to load png file and show the image on screen.
+
+	Input: smiles code
+
+	E.g.,
+	map( lambda xx: jchem.show_mol( xx[1], name_tag = True, idx = xx[0] + 1), enumerate(mol_smiles_list))
+	"""
+
+	if name_tag:
+		if idx:
+			print idx, smiles
+		else:
+			print smiles
+
+	m = Chem.MolFromSmiles( smiles)
+
+	cnonical_sm = Chem.MolToSmiles( m)
+	if disp:
+		print cnonical_sm
+
+	tmp = AllChem.Compute2DCoords( m)
+	f_name = '{}.png'.format( 'smiles')
+	Draw.MolToFile(m, f_name)
+
+	img_m = plt.imread( f_name)
+	plt.imshow( img_m)
+	plt.show()
+
+def _show_mol_r0( smiles = 'C1=CC=CC=C1', name_tag = False, idx = None):
 	"""
 	This function shows the molecule defined by smiles code.
 	The procedure follows:
@@ -80,8 +123,47 @@ def show_mol( smiles = 'C1=CC=CC=C1', name_tag = False, idx = None):
 	plt.imshow( img_m)
 	plt.show()
 
+def showmol( smiles = 'C1=CC=CC=C1', name_tag = False, idx = None, sanitize = True):
+	"""
+	This function shows the molecule defined by smiles code.
+	The procedure follows:
+	- 
+	First, benzene can be defined as follows. 
+    Before defining molecule, the basic library of rdkit can be loaded using the import command.
 
-def calc_corr( smilesArr, radius = 2, nBits = 1024):
+    Second, the 2D coordination of the molecule can be calculated. 
+    For coordination calculation, AllChem sub-tool should be included.
+
+	Third, the molecular graph is drawn and save it 
+	so as to see in the picture manipulation tool. 
+	To use Draw, we must include Draw tool from rdkit.Chem.
+
+	Then,  it is time to load png file and show the image on screen.
+
+	Input: smiles code
+
+	E.g.,
+	map( lambda xx: jchem.show_mol( xx[1], name_tag = True, idx = xx[0] + 1), enumerate(mol_smiles_list))
+	"""
+
+	if name_tag:
+		if idx:
+			print idx, smiles
+		else:
+			print smiles
+
+	m = Chem.MolFromSmiles( smiles, sanitize = sanitize)
+	print m
+	tmp = AllChem.Compute2DCoords( m)
+	f_name = '{}.png'.format( 'smiles')
+	Draw.MolToFile(m, f_name)
+
+	img_m = plt.imread( f_name)
+	plt.imshow( img_m)
+	plt.show()	
+
+
+def _calc_corr_r0( smilesArr, radius = 2, nBits = 1024):
 	ms_mid = [Chem.MolFromSmiles( m_sm) for m_sm in smilesArr]	
 	f_m = [AllChem.GetMorganFingerprintAsBitVect(x, radius, nBits) for x in ms_mid]
 
@@ -93,6 +175,19 @@ def calc_corr( smilesArr, radius = 2, nBits = 1024):
 				# print( "Base:{0}, Target:{1}".format( ms_smiles_base.keys()[bx], ms_smiles_mid.keys()[mx]))
 				A[m1, m2] =  DataStructs.DiceSimilarity( f1, f2)
 
+	return A
+
+def calc_corr( smilesArr, radius = 2, nBits = 1024):
+	ms_mid = [Chem.MolFromSmiles( m_sm) for m_sm in smilesArr]	
+	f_m = [AllChem.GetMorganFingerprintAsBitVect(x, radius, nBits) for x in ms_mid]
+
+	Nm = len(f_m)
+	A = np.zeros( (Nm, Nm))
+
+	for (m1, f1) in enumerate(f_m):
+			for (m2, f2) in enumerate(f_m):
+				# print( "Base:{0}, Target:{1}".format( ms_smiles_base.keys()[bx], ms_smiles_mid.keys()[mx]))
+				A[m1, m2] =  DataStructs.TanimotoSimilarity( f1, f2)
 	return A
 
 def calc_corr_rad( smilesArr, radius = 2):
@@ -224,10 +319,11 @@ def _clean_fp_M_r0( xM):
 			xM_clean.append( xM_column)
 	return xM_clean
 
-def clean_fp_M( xM):
+def _clean_fp_M_r0( xM):
 	"""
 	1. Zero sum column vectors will be removed.
-	2. All one column vectors wiil be also removed.
+	2. All one column vectors will be also removed.
+	3. The same patterns for different position will be merged to one.
 	"""
 	#xM_clean = np.copy( xM)
 	iy_list = []
@@ -236,17 +332,79 @@ def clean_fp_M( xM):
 		if xM_sum[0,iy] == 0 or xM_sum[0,iy] == xM.shape[0]:
 			#print 'deleted: ', iy
 			iy_list.append( iy)	
-	xM_clean = np.delete(xM, iy_list, 1)
-	return xM_clean
+	
+	xM = np.delete(xM, iy_list, 1)
+
+	# if pattern is the same, the same pattern columns are removed except remaining only one column
+	iy_list = []
+	for iy in range( xM.shape[1]):
+		if iy not in iy_list:
+			pat = xM[:, iy]
+			# print pat
+			for iy2 in range( iy+1, xM.shape[1]):
+				if iy2 not in iy_list:
+					if not np.all( pat - xM[:, iy2]):
+						iy_list.append( iy2)			
+
+	#print iy_list
+	xM = np.delete(xM, iy_list, 1)
+
+	return xM
+
+def _clean_fp_M_r0( xM):
+	"""
+	1. Zero sum column vectors will be removed.
+	2. All one column vectors wiil be also removed.
+	3. The same patterns for different position will be merged to one.
+	* np.all() and np.any() should be understand clearly.
+	"""
+	#xM_clean = np.copy( xM)
+	iy_list = []
+	xM_sum = np.sum( xM, 0)
+	for iy in range( xM.shape[1]):
+		if xM_sum[0,iy] == 0 or xM_sum[0,iy] == xM.shape[0]:
+			#print 'deleted: ', iy
+			iy_list.append( iy)	
+	
+	xM = np.delete(xM, iy_list, 1)
+
+	# if pattern is the same, the same pattern columns are removed except remaining only one column
+	iy_list = []
+	for iy in range( xM.shape[1]):
+		if iy not in iy_list:
+			pat = xM[:, iy]
+			# print pat
+			for iy2 in range( iy+1, xM.shape[1]):
+				if iy2 not in iy_list:
+					if not np.any( pat - xM[:, iy2]):
+						iy_list.append( iy2)			
+
+	#print iy_list
+	#xM = np.delete(xM, iy_list, 1)
+
+	return xM
 
 def gff( smiles = 'c1ccccc1O', rad = 2, nBits = 1024):
 	"It generates fingerprint from smiles code"
 	x = Chem.MolFromSmiles( smiles)
 	return AllChem.GetMorganFingerprintAsBitVect( x, rad, nBits)
 
+def gfb( smiles = 'c1ccccc1O', rad = 4, nBits = 1024):
+	"""
+	It generates fingerprint from smiles code
+	Fingerprint is fp not ff, so it is changed from ff to fp.
+	Morevoer, rad = 4 is default for property modeling. 
+	"""
+	x = Chem.MolFromSmiles( smiles)
+	return AllChem.GetMorganFingerprintAsBitVect( x, rad, nBits)
+
 def gff_vec( smiles_vec, rad = 2, nBits = 1024):
 	"It generates a fingerprint vector from a smiles code vector"
 	return [gff(x, rad, nBits) for x in smiles_vec]
+
+def gfb_vec( smiles_vec, rad = 4, nBits = 1024):
+	"It generates a fingerprint vector from a smiles code vector"
+	return [gfb(x, rad, nBits) for x in smiles_vec]
 
 def _gff_binlist_r0( smiles_vec, rad = 2, nBits = 1024):
 	"""
@@ -284,6 +442,28 @@ def gff_binlist( smiles_vec, rad = 2, nBits = 1024):
 	"""
 	return [ map( int, list( jutil.sleast(x[2:], nBits))) for x in ff_bin]
 
+def gfb_binlist( smiles_vec, rad = 4, nBits = 1024):
+	"""
+	It generates a binary list of fingerprint vector from a smiles code vector.
+	Each string will be expanded to be the size of nBits such as 1024.
+	- It shows error message when nBits < 1024 and len(x) > nBits.	
+	- Now bits reduced to match input value of nBit eventhough the real output is large
+	- fp clean will be adopted.
+	"""
+	ff_vec = gfb_vec( smiles_vec, rad, nBits)
+	ff_bin = [ bin(int(x.ToBinary().encode("hex"), 16)) for x in ff_vec]
+
+	#Show error message when nBits < 1024 and len(x) > nBits	
+	"""
+	for x in ff_bin:
+		if len(x[2:]) > nBits:
+			print 'The length of x is {0}, which is larger than {1}'.format(len(x[2:]), nBits)
+			print 'So, the minimal value of nBits must be 1024 generally.'
+	return [ map( int, list( '0'*(nBits - len(x[2:])) + x[2:])) for x in ff_bin]
+	"""
+	return [ map( int, list( jutil.sleast(x[2:], nBits))) for x in ff_bin]
+
+
 def gfp_binlist( smiles_vec, rad = 4, nBits = 1024):
 	gff_binlist( smiles_vec, rad = rad, nBits = nBits)
 
@@ -303,19 +483,35 @@ def gff_binlist_bnbp( smiles_vec, rad = 2, nBits = 1024, bnbp = 'bn'):
 	else:
 		return [ map( int, list( jutil.sleast(x[2:], nBits))) for x in ff_bin]
 
-
 def gff_M( smiles_vec, rad = 2, nBits = 1024):
 	"It generated a binary matrix from a smiles code vecor."
 	return np.mat(gff_binlist( smiles_vec, rad = rad, nBits = nBits))
 
 def gfp_M( smiles_vec, rad = 4, nBits = 1024):
 	"It generated a binary matrix from a smiles code vecor."
-	return np.mat(gff_binlist( smiles_vec, rad = rad, nBits = nBits))
+	xM = np.mat(gfb_binlist( smiles_vec, rad = rad, nBits = nBits))	
+	#Now fingerprint matrix is cleaned if column is all the same value such as all 1, all 0
+	return clean_fp_M( xM)
+
+def gfp_M_simple( smiles_vec):
+	"It generated a binary matrix from a smiles code vecor."
+
+	xM = []
+	for xs in smiles_vec:
+		mol = Chem.MolFromSmiles( xs)
+		fp = Chem.RDKFingerprint( mol)
+		fp_b = fp.ToBitString()
+		fp_b_list = map( int, fp_b)
+		xM.append( fp_b_list)
+
+	xM = np.mat( xM)
+
+	return xM
+
 
 def gff_M_bnbp( smiles_vec, rad = 2, nBits = 1024, bnbp = 'bn'):
 	"It generated a binary matrix from a smiles code vecor."
 	return np.mat(gff_binlist_bnbp( smiles_vec, rad, nBits, bnbp))
-
 
 def ff_bin( smiles = 'c1ccccc1O'):
 	"""
@@ -619,24 +815,55 @@ def get_valid_mode_data( aM, yV, rate = 3, more_train = True, center = None):
 
 	return aM_t, yV_t, aM_v, yV_v	
 
-def estimate_accuracy( yv, yv_ann, disp = False):
+def _estimate_accuracy_r0( yv, yv_ann, disp = False):
 	"""
 	The two column matrix is compared in this function and 
 	It calculates RMSE and r_sqr.
 	"""
 	e = yv - yv_ann
 	se = e.T * e
+	aae = np.average( np.abs( e))
 	RMSE = np.sqrt( se / len(e))
 
 	# print "RMSE =", RMSE
 	y_unbias = yv - np.mean( yv)
 	s_y_unbias = y_unbias.T * y_unbias
-	r_sqr = 1 - se/s_y_unbias
+	r_sqr = 1.0 - se/s_y_unbias
 
 	if disp:
-		print "r_sqr = {0}, RMSE = {1}".format( r_sqr[0,0], RMSE[0,0])
+		print "r_sqr = {0:.3e}, RMSE = {1:.3e}, AAE = {2:.3e}".format( r_sqr[0,0], RMSE[0,0], aae)
 
 	return r_sqr[0,0], RMSE[0,0]
+
+def estimate_accuracy( yv, yv_ann, disp = False):
+	"""
+	The two column matrix is compared in this function and 
+	It calculates RMSE and r_sqr.
+	"""
+
+	print yv.shape, yv_ann.shape
+	if not( yv.shape[0] > 0 and yv.shape[1] == 1 and yv.shape == yv_ann.shape):
+		raise TypeError( 'Both input data matrices must be column vectors.')
+
+	e = yv - yv_ann
+	se = e.T * e
+	aae = np.average( np.abs( e))
+	RMSE = np.sqrt( se / len(e))
+
+	# print "RMSE =", RMSE
+	y_unbias = yv - np.mean( yv)
+	s_y_unbias = y_unbias.T * y_unbias
+	r_sqr = 1.0 - se/s_y_unbias
+
+	if disp:
+		print "r_sqr = {0:.3e}, RMSE = {1:.3e}, AAE = {2:.3e}".format( r_sqr[0,0], RMSE[0,0], aae)
+
+		#print "len(e) = ", len(e)
+		#print "se = ", se
+		#print "s_y_unbias =", s_y_unbias
+
+	return r_sqr[0,0], RMSE[0,0]
+
 
 class FF_W:
 	"""
@@ -745,6 +972,80 @@ class FF_W:
 		X6, Y2 = np.mat( X5), np.mat( Y1).T
 
 		return X6, Y2		
+
+	def getM_new( self, X, Y):
+		"""
+		Fingerprint matrix is generated.
+		Regularization is considered depending on the flag. 
+		"""
+		if self.smiles_clean:
+			X0, Y0 = clean_smiles_vec_io( X, Y)
+		else:
+			X0, Y0 = X, Y
+
+		# self.clean_X = X0
+
+		if self.N is None:
+			N = len( X0)
+
+		X1, Y1 = X0[:N], Y0[:N]	
+
+		X2 = gfpM( X1, rad = self.rad, nBits = self.nBits)
+
+		Y2 = np.mat( Y1).T
+
+		return X2, Y2	
+
+	def getM_clean( self, X, Y, nBits_Max_val = None):
+		"""
+		Fingerprint matrix is generated.
+		Regularization is considered depending on the flag. 
+		"""
+		if self.smiles_clean:
+			X0, Y0 = clean_smiles_vec_io( X, Y)
+		else:
+			X0, Y0 = X, Y
+
+		# self.clean_X = X0
+
+		if self.N is None:
+			N = len( X0)
+
+		X1, Y1 = X0[:N], Y0[:N]	
+
+		# fingerprint vectors
+		X2 = [self.gff(x) for x in X1] 
+
+		# vector of fingerprint binary string
+		X3 = [bin(int(x.ToBinary().encode("hex"), 16)) for x in X2] 
+
+		# Convert each binary string to binary character vectors
+		if self.nBits_Max: # the maximum size is used for nBits
+			if nBits_Max_val== None:
+				len_X3 = map( len, [x[2:] for x in X3])
+				nBits_Max_val = max( len_X3)
+			X4 = [list( jutil.sleast(x[2:], nBits_Max_val)) for x in X3]
+		else:
+			X4 = [list( jutil.sleast(x[2:], self.nBits)) for x in X3]
+
+		# Convert character (single element string)	to integer for computation
+		if self.bnbp == 'bp': #bipolar input generation
+			X5 = [ map( jutil.int_bp, x) for x in X4]
+		elif self.bnbp == 'bn_reg':
+			X5_tmp = [ map( float, x) for x in X4]
+			X5 = []
+			for x in X5_tmp:
+				x_sum = np.sum(x)
+				X5.append( map( lambda x_i: x_i / x_sum, x))
+
+		else: #binary case
+			X5 = [ map( int, x) for x in X4]
+
+		X6, Y2 = np.mat( X5), np.mat( Y1).T
+
+		X7 = clean_fp_M( X6)
+
+		return X7, Y2	
 
 
 	def getw( self, smiles_vec, property_vec):
@@ -1038,3 +1339,199 @@ class FF_W:
 	#def get_clean_X(self):
 	#	return self.clean_X
 
+##############################################
+#Edited in May 1, 2015~
+
+def clean_fp_M_bias( xM):
+	iy_list = []
+	xM_sum = np.sum( xM, 0)
+	for iy in range( xM.shape[1]):
+		if xM_sum[0,iy] == 0 or xM_sum[0,iy] == xM.shape[0]:
+			#print 'deleted: ', iy
+			iy_list.append( iy)	
+	
+	xM = np.delete(xM, iy_list, 1)
+	
+	return xM
+
+def clean_fp_M_pattern( xM):
+	iy_list = []
+	for iy in range( xM.shape[1]):
+		if iy not in iy_list:
+			pat = xM[:, iy]
+			# print pat
+			for iy2 in range( iy+1, xM.shape[1]):
+				if iy2 not in iy_list:
+					if not np.any( pat - xM[:, iy2]):
+						iy_list.append( iy2)			
+
+	#print iy_list
+	xM = np.delete(xM, iy_list, 1)
+	
+	return xM
+
+def clean_fp_M( xM):
+	"""
+	1. Zero sum column vectors will be removed.
+	2. All one column vectors wiil be also removed.
+	3. The same patterns for different position will be merged to one.
+	* np.all() and np.any() should be understand clearly.
+	"""
+	
+	xM = clean_fp_M_bias( xM)
+	xM = clean_fp_M_pattern( xM)	
+	
+	return xM
+
+def check_fp_M_row_pattern( xM):
+	"""
+	If the pattern in row is the same, 
+	it will give the number of the same pattern rows.
+	"""
+	ix_list = []
+	ix_pair_list = []
+	for ix in range( xM.shape[0]):
+		if ix not in ix_list:
+			pat = xM[ix, :]
+			# print pat
+			for ix2 in range( ix+1, xM.shape[0]):
+				if ix2 not in ix_list:
+					if not np.any( pat - xM[ix2, :]):
+						ix_list.append( ix2)
+						ix_pair_list.append( (ix, ix2))
+
+	#if len( ix_list):
+	#	print 'The same row pair list is', ix_list
+		
+	return ix_pair_list
+
+def gfpM( smiles_vec, rad = 4, nBits = 1024):
+	"It generated a binary matrix from a smiles code vecor."
+	
+	mol_vec = [Chem.MolFromSmiles( x) for x in smiles_vec]
+	fp_vec = [AllChem.GetMorganFingerprintAsBitVect(x, rad, nBits) for x in mol_vec]
+	bs_vec = [x.ToBitString() for x in fp_vec]
+	xM_str = [ map(int, x) for x in bs_vec]
+	
+	xM = np.mat( xM_str)	
+	#Now fingerprint matrix is cleaned if column is all the same value such as all 1, all 0
+	return xM
+	
+def gfpM_c( smiles_vec, rad = 4, nBits = 1024):
+	
+	xM = gfpM( smiles_vec, rad = rad, nBits = nBits)
+
+	return clean_fp_M( xM)
+
+def list_indices( l, target):
+	return [i for i,val in enumerate(l) if val == target]
+
+def check_mol2smiles( x_smiles_1):	
+	"""
+	Find smiles codes which can not operate in rdkit now. 
+	x_smiles_1 is refined by cannonical smiles generated by rdkit
+	"""
+	x_mol_list = [Chem.MolFromSmiles(x) for x in x_smiles_1]
+
+	fail_list = []
+	for ii in range( len(x_mol_list)):
+		try: 
+			x_smiles_1[ii] = Chem.MolToSmiles( x_mol_list[ii])
+			#print ii, "Sucess" 
+		except:
+			print ii, "Faliue"
+			fail_list.append( ii)
+			x_smiles_1[ii] = ''
+
+	return fail_list
+
+def pd_check_mol2smiles( pd_smiles):
+
+	smiles_l = pd_smiles.tolist()
+	fail_l = check_mol2smiles( smiles_l)
+	
+	# since siles_l is changed, pd values are also changed.
+	pd_smiles = smiles_l
+
+	return fail_l
+
+
+def check_dup_list( x_list):
+	"""
+	Duplication indices are returned.
+	"""
+	# print 'Duplication if false', x_smiles == set( x_smiles)
+	x_list_dup_count = np.array( [ x_list.count( x) for x in x_list])
+	
+	return np.where( x_list_dup_count > 1)
+
+def get_mol2smiles( x_smiles_1):	
+	"""
+	Find smiles codes which can not operate in rdkit now. 
+	x_smiles_1 is refined by cannonical smiles generated by rdkit
+	"""
+	x_mol_list = [Chem.MolFromSmiles(x) for x in x_smiles_1]
+
+	fail_list = []
+	for ii in range( len(x_mol_list)):
+		try: 
+			Chem.MolToSmiles( x_mol_list[ii])
+			#print ii, "Sucess" 
+		except:
+			print ii, "Faliue"
+			fail_list.append( ii)
+			x_smiles_1[ii] = ''
+
+	return fail_list	
+
+def get_duplist( x_list, disp = True):
+	"""
+	Duplication indices are returned.
+	"""
+	duplist = []
+	for x in set( x_list):
+		if x_list.count( x) > 1:
+			duplist.append( list_indices( x_list, x))
+
+	if disp:
+		print duplist
+		for d in duplist:
+			print [x_list[x] for x in d]
+
+	return duplist
+
+def pd_remove_no_mol2smiles( pdr, smiles_id = 'SMILES'):
+	"""
+	Find not working smiles codes
+	"""
+	s = pdr[ smiles_id].tolist()
+	fail_list = get_mol2smiles( s)
+
+	pdr = jutil.pd_remove_faillist_ID( pdr, fail_list)
+
+	return pdr
+
+def pd_refine_smiles( pdr, smiles_id = 'SMILES'):
+	"""
+	smiles codes are refined by rdkit. 
+	"""
+	s_l = pdr[ smiles_id]
+	m_l = map( Chem.MolFromSmiles, s_l)
+	new_s_l = map( Chem.MolToSmiles, m_l)
+
+	pdr[ smiles_id] = new_s_l
+
+	return pdr
+
+def add_new_descriptor( xM, desc_list):
+	xMT_l = xM.T.tolist()
+	print np.shape(xMT_l)
+	xMT_l.append( desc_list)
+	print np.shape(xMT_l)
+	xM_add = np.mat( xMT_l).T
+	print xM_add.shape
+	return xM_add
+
+def rdkit_molwt( smiles_l):
+	molw_l = [ Chem.rdMolDescriptors.CalcExactMolWt( Chem.MolFromSmiles(x)) for x in smiles_l]
+	return molw_l 
