@@ -219,3 +219,17 @@ def inchi_to_casno_each_test( inchi):
 	ed = r.content[st:].find('</li>') + st
 	
 	return r.content[st:ed].strip()
+
+def inchi_to_csid( inchi_l):
+    csid_ll = list()
+    for ID, inchi in enumerate(inchi_l):
+        print ID, inchi, 
+        csid_each_l = list()
+        for result in cs.search( inchi):
+            print( result, result.csid)
+            csid_each_l.append( result.csid)
+        if len(csid_each_l) == 1:
+            csid_ll.append( csid_each_l[0])
+        else: 
+            csid_ll.append( csid_each_l)
+    return csid_ll

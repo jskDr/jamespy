@@ -2,12 +2,12 @@
 some utility which I made.
 Editor - Sungjin Kim, 2015-4-17
 """
-
 #Common library
 from sklearn import linear_model, svm, cross_validation, grid_search
 
 import matplotlib.pyplot as plt
 import numpy as np
+import time
 
 #import subprocess
 import pandas as pd
@@ -16,7 +16,9 @@ import random
 
 #My personal library
 import jchem
+import jpyx
 
+from maml.gp import gaussian_process as gp
 
 def _sleast_r0( a = '1000', ln = 10):
 	"It returns 0 filled string with the length of ln."
@@ -45,17 +47,15 @@ def prange( pat, st, ed, ic=1):
 
 	return filter( lambda x: x < ed, ar)
 
-import time
-
 class Timer:    
-    def __enter__(self):
-        self.start = time.clock()
-        return self
+	def __enter__(self):
+		self.start = time.clock()
+		return self
 
-    def __exit__(self, *args):
-        self.end = time.clock()
-        self.interval = self.end - self.start
-        print( 'Elapsed time: {}sec'.format(self.interval))
+	def __exit__(self, *args):
+		self.end = time.clock()
+		self.interval = self.end - self.start
+		print( 'Elapsed time: {}sec'.format(self.interval))
 
 def mlr( RM, yE, disp = True, graph = True):
 	clf = linear_model.LinearRegression()
@@ -175,6 +175,70 @@ def regress_show( yEv, yEv_calc, disp = True, graph = True, plt_title = None):
 			plt.title( '$r^2$ = {0:.2e}, RMSE = {1:.2e}'.format( r_sqr, RMSE))
 		plt.show()
 	return r_sqr, RMSE
+
+def regress_show3( yEv, yEv_calc, disp = True, graph = True, plt_title = None):
+
+	# if the output is a vector and the original is a metrix, 
+	# the output is translated to a matrix. 
+
+	r_sqr, RMSE, MAE = jchem.estimate_score3( yEv, yEv_calc, disp = disp)
+	
+	if graph:
+		#plt.scatter( yEv.tolist(), yEv_calc.tolist())	
+		plt.figure()	
+		ms_sz = max(min( 4000 / yEv.shape[0], 8), 1)
+		plt.plot( yEv.tolist(), yEv_calc.tolist(), '.', ms = ms_sz) # Change ms 
+		ax = plt.gca()
+		lims = [
+			np.min([ax.get_xlim(), ax.get_ylim()]),  # min of both axes
+			np.max([ax.get_xlim(), ax.get_ylim()]),  # max of both axes
+		]
+		# now plot both limits against eachother
+		#ax.plot(lims, lims, 'k-', alpha=0.75, zorder=0)
+		ax.plot(lims, lims, '-', color = 'pink')
+		plt.xlabel('Experiment')
+		plt.ylabel('Prediction')
+		if plt_title:
+			plt.title( plt_title)
+		else:
+			plt.title( '$r^2$ = {0:.2e}, RMSE = {1:.2e}, MAE = {2:.2e}'.format( r_sqr, RMSE, MAE))
+		plt.show()
+	
+	return r_sqr, RMSE, MAE
+
+
+def cv_show( yEv, yEv_calc, disp = True, graph = True, grid_std = None):
+
+	# if the output is a vector and the original is a metrix, 
+	# the output is translated to a matrix. 
+	if len( np.shape(yEv_calc)) == 1:	
+		yEv_calc = np.mat( yEv_calc).T
+	if len( np.shape(yEv)) == 1:
+		yEv = np.mat( yEv).T
+
+	r_sqr, RMSE = jchem.estimate_accuracy( yEv, yEv_calc, disp = disp)
+	if graph:
+		#plt.scatter( yEv.tolist(), yEv_calc.tolist())	
+		plt.figure()	
+		ms_sz = max(min( 4000 / yEv.shape[0], 8), 1)
+		plt.plot( yEv.tolist(), yEv_calc.tolist(), '.', ms = ms_sz) # Change ms 
+		ax = plt.gca()
+		lims = [
+			np.min([ax.get_xlim(), ax.get_ylim()]),  # min of both axes
+			np.max([ax.get_xlim(), ax.get_ylim()]),  # max of both axes
+		]
+		# now plot both limits against eachother
+		#ax.plot(lims, lims, 'k-', alpha=0.75, zorder=0)
+		ax.plot(lims, lims, '-', color = 'pink')
+		plt.xlabel('Experiment')
+		plt.ylabel('Prediction')
+		if grid_std:
+			plt.title( '($r^2$, std) = ({0:.2e}, {1:.2e}), RMSE = {2:.2e}'.format( r_sqr, grid_std, RMSE))
+		else:
+			plt.title( '$r^2$ = {0:.2e}, RMSE = {1:.2e}'.format( r_sqr, RMSE))
+		plt.show()
+	return r_sqr, RMSE
+
 
 ann_show = regress_show
 
@@ -403,6 +467,9 @@ def mlr_val_vseq_ridge_rand_profile( RM, yE, alpha = .5, rate = 2, iterN = 10, d
 	pd_rms = pd.DataFrame( {'rms': rms_list})
 	pd_rms.plot( kind = 'hist', alpha = 0.5)
 
+	print "r2: mean = {0}, std = {1}".format( np.mean( r2_list), np.std( r2_list))
+	print "RMSE: mean = {0}, std = {1}".format( np.mean( rms_list), np.std( rms_list))
+
 	return r2_list, rms_list
 
 def mlr_val_vseq_lasso_rand_profile( RM, yE, alpha = .001, rate = 2, iterN = 10, disp = True, graph = False, hist = True):
@@ -423,7 +490,8 @@ def mlr_val_vseq_lasso_rand_profile( RM, yE, alpha = .001, rate = 2, iterN = 10,
 	pd_rms = pd.DataFrame( {'rms': rms_list})
 	pd_rms.plot( kind = 'hist', alpha = 0.5)
 
-	print map(np.mean, [r2_list, rms_list])
+	print "r2: mean = {0}, std = {1}".format( np.mean( r2_list), np.std( r2_list))
+	print "RMSE: mean = {0}, std = {1}".format( np.mean( rms_list), np.std( rms_list))
 
 	return r2_list, rms_list
 
@@ -670,11 +738,25 @@ def corr_xy( x_vec, y_vec):
 
 	return normal_molw_x.T * normal_yV0
 
-def gs_Lasso( xM, yV, alphas_log = (1, -1, 9)):
+def gs_Lasso( xM, yV, alphas_log = (-1, 1, 9)):
 
 	print xM.shape, yV.shape
 
 	clf = linear_model.Lasso()
+	#parmas = {'alpha': np.logspace(1, -1, 9)}
+	parmas = {'alpha': np.logspace( *alphas_log)}
+	kf5 = cross_validation.KFold( xM.shape[0], n_folds=5, shuffle=True)
+	gs = grid_search.GridSearchCV( clf, parmas, scoring = 'r2', cv = kf5, n_jobs = 1)
+
+	gs.fit( xM, yV)
+
+	return gs
+
+def gs_Lasso_norm( xM, yV, alphas_log = (-1, 1, 9)):
+
+	print xM.shape, yV.shape
+
+	clf = linear_model.Lasso( normalize = True)
 	#parmas = {'alpha': np.logspace(1, -1, 9)}
 	parmas = {'alpha': np.logspace( *alphas_log)}
 	kf5 = cross_validation.KFold( xM.shape[0], n_folds=5, shuffle=True)
@@ -783,11 +865,331 @@ def gs_Ridge( xM, yV, alphas_log = (1, -1, 9)):
 	#parmas = {'alpha': np.logspace(1, -1, 9)}
 	parmas = {'alpha': np.logspace( *alphas_log)}
 	kf5 = cross_validation.KFold( xM.shape[0], n_folds=5, shuffle=True)
-	gs = grid_search.GridSearchCV( clf, parmas, scoring = 'r2', cv = kf5, n_jobs = -1)
+	gs = grid_search.GridSearchCV( clf, parmas, scoring = 'r2', cv = kf5, n_jobs = 1)
 
 	gs.fit( xM, yV)
 
 	return gs
+
+def gs_Ridge( xM, yV, alphas_log = (1, -1, 9), n_folds = 5):
+
+	print xM.shape, yV.shape
+
+	clf = linear_model.Ridge()
+	#parmas = {'alpha': np.logspace(1, -1, 9)}
+	parmas = {'alpha': np.logspace( *alphas_log)}
+	kf_n = cross_validation.KFold( xM.shape[0], n_folds=n_folds, shuffle=True)
+	gs = grid_search.GridSearchCV( clf, parmas, scoring = 'r2', cv = kf_n, n_jobs = 1)
+
+	gs.fit( xM, yV)
+
+	return gs
+
+def _cv_LinearRegression_r0( xM, yV):
+
+	print xM.shape, yV.shape
+
+	clf = linear_model.Ridge()
+	kf5 = cross_validation.KFold( xM.shape[0], n_folds=5, shuffle=True)
+	cv_scores = cross_validation.cross_val_score( clf, xM, yV, scoring = 'r2', cv = kf5, n_jobs = -1)
+
+	return cv_scores
+
+def cv_LinearRegression( xM, yV):
+
+	print xM.shape, yV.shape
+
+	clf = linear_model.LinearRegression()
+	kf5 = cross_validation.KFold( xM.shape[0], n_folds=5, shuffle=True)
+	cv_scores = cross_validation.cross_val_score( clf, xM, yV, scoring = 'r2', cv = kf5, n_jobs = -1)
+
+	print 'R^2 mean, std -->', np.mean( cv_scores), np.std( cv_scores)
+
+	return cv_scores
+
+def cv_LinearRegression_A( xM, yV, s_l):
+	lr = linear_model.LinearRegression()
+	kf5 = cross_validation.KFold( xM.shape[0], n_folds=5, shuffle=True)
+	r2_l = list()
+	for train, test in kf5:
+		xM_shuffle = np.concatenate( (xM[ train, :], xM[ test, :]), axis = 0)
+		# print xM_shuffle.shape
+
+		A_all = jpyx.calc_tm_sim_M( xM_shuffle)
+		A = A_all
+
+		s_l_shuffle = [s_l[x] for x in train] #train
+		s_l_shuffle.extend( [s_l[x] for x in test] ) #test
+		molw_l = jchem.rdkit_molwt( s_l_shuffle)
+
+		A_molw = A
+
+		A_molw_train = A_molw[:len(train), :]
+		A_molw_test = A_molw[len(train):, :]
+
+		print A_molw_train.shape, yV[ train, 0].shape
+		lr.fit( A_molw_train, yV[ train, 0])
+
+		#print A_molw_test.shape, yV[ test, 0].shape
+		r2_l.append( lr.score( A_molw_test, yV[ test, 0]))
+
+	print 'R^2 mean, std -->', np.mean( r2_l), np.std( r2_l)
+
+	return r2_l	
+
+def cv_LinearRegression_Asupervising( xM, yV, s_l):
+	lr = linear_model.LinearRegression()
+	kf5 = cross_validation.KFold( xM.shape[0], n_folds=5, shuffle=True)
+	r2_l = list()
+	for train, test in kf5:
+		xM_shuffle = np.concatenate( (xM[ train, :], xM[ test, :]), axis = 0)
+		#print xM_shuffle.shape
+
+		A_all = jpyx.calc_tm_sim_M( xM_shuffle)
+		A = A_all[ :, :len(train)]
+
+		s_l_shuffle = [s_l[x] for x in train] #train
+		s_l_shuffle.extend( [s_l[x] for x in test] ) #test
+		molw_l = jchem.rdkit_molwt( s_l_shuffle)
+
+		A_molw = A
+
+		A_molw_train = A_molw[:len(train), :]
+		A_molw_test = A_molw[len(train):, :]
+
+		print A_molw_train.shape, yV[ train, 0].shape
+		lr.fit( A_molw_train, yV[ train, 0])
+
+		#print A_molw_test.shape, yV[ test, 0].shape
+		r2_l.append( lr.score( A_molw_test, yV[ test, 0]))
+
+	print 'R^2 mean, std -->', np.mean( r2_l), np.std( r2_l)
+
+	return r2_l	
+
+def cv_LinearRegression_Asupervising_molw( xM, yV, s_l):
+	
+	lr = linear_model.LinearRegression()
+	kf5 = cross_validation.KFold( xM.shape[0], n_folds=5, shuffle=True)
+	r2_l = list()
+	
+	for train, test in kf5:
+		xM_shuffle = np.concatenate( (xM[ train, :], xM[ test, :]), axis = 0)
+		# print xM_shuffle.shape
+
+		A_all = jpyx.calc_tm_sim_M( xM_shuffle)
+		A = A_all[ :, :len(train)]
+		#print 'A.shape', A.shape
+
+		s_l_shuffle = [s_l[x] for x in train] #train
+		s_l_shuffle.extend( [s_l[x] for x in test] ) #test
+		molw_l = jchem.rdkit_molwt( s_l_shuffle)
+
+		A_molw = jchem.add_new_descriptor( A, molw_l)
+
+		A_molw_train = A_molw[:len(train), :]
+		A_molw_test = A_molw[len(train):, :]
+
+		#print A_molw_train.shape, yV[ train, 0].shape
+		lr.fit( A_molw_train, yV[ train, 0])
+
+		#print A_molw_test.shape, yV[ test, 0].shape
+		r2_l.append( lr.score( A_molw_test, yV[ test, 0]))
+
+	print 'R^2 mean, std -->', np.mean( r2_l), np.std( r2_l)
+
+	return r2_l
+
+def cv_Ridge_Asupervising_molw( xM, yV, s_l, alpha):
+	
+	lr = linear_model.Ridge( alpha = alpha)
+	kf5 = cross_validation.KFold( xM.shape[0], n_folds=5, shuffle=True)
+	r2_l = list()
+	
+	for train, test in kf5:
+		xM_shuffle = np.concatenate( (xM[ train, :], xM[ test, :]), axis = 0)
+		# print xM_shuffle.shape
+
+		A_all = jpyx.calc_tm_sim_M( xM_shuffle)
+		A = A_all[ :, :len(train)]
+		#print 'A.shape', A.shape
+
+		s_l_shuffle = [s_l[x] for x in train] #train
+		s_l_shuffle.extend( [s_l[x] for x in test] ) #test
+		molw_l = jchem.rdkit_molwt( s_l_shuffle)
+
+		A_molw = jchem.add_new_descriptor( A, molw_l)
+
+		A_molw_train = A_molw[:len(train), :]
+		A_molw_test = A_molw[len(train):, :]
+
+		#print A_molw_train.shape, yV[ train, 0].shape
+		lr.fit( A_molw_train, yV[ train, 0])
+
+		#print A_molw_test.shape, yV[ test, 0].shape
+		r2_l.append( lr.score( A_molw_test, yV[ test, 0]))
+
+	print 'R^2 mean, std -->', np.mean( r2_l), np.std( r2_l)
+
+	return r2_l
+
+def cv_Ridge_Asupervising_2fp( xM1, xM2, yV, s_l, alpha):
+	
+	lr = linear_model.Ridge( alpha = alpha)
+	kf5 = cross_validation.KFold( len(s_l), n_folds=5, shuffle=True)
+	r2_l = list()
+	
+	for train, test in kf5:
+		xM1_shuffle = np.concatenate( (xM1[ train, :], xM1[ test, :]), axis = 0)
+		xM2_shuffle = np.concatenate( (xM2[ train, :], xM2[ test, :]), axis = 0)
+		# print xM_shuffle.shape
+
+		A1_redundant = jpyx.calc_tm_sim_M( xM1_shuffle)
+		A1 = A1_redundant[ :, :len(train)]
+		A2_redundant = jpyx.calc_tm_sim_M( xM2_shuffle)
+		A2 = A2_redundant[ :, :len(train)]
+		#print 'A.shape', A.shape
+
+		s_l_shuffle = [s_l[x] for x in train] #train
+		s_l_shuffle.extend( [s_l[x] for x in test] ) #test
+		molw_l = jchem.rdkit_molwt( s_l_shuffle)
+		molwV = np.mat( molw_l).T
+
+		#A_molw = jchem.add_new_descriptor( A, molw_l)
+		print A1.shape, A2.shape, molwV.shape
+		# A_molw = np.concatenate( (A1, A2, molwV), axis = 1)
+		A_molw = np.concatenate( (A1, A2), axis = 1)
+		print A_molw.shape
+
+		A_molw_train = A_molw[:len(train), :]
+		A_molw_test = A_molw[len(train):, :]
+
+		#print A_molw_train.shape, yV[ train, 0].shape
+		lr.fit( A_molw_train, yV[ train, 0])
+
+		#print A_molw_test.shape, yV[ test, 0].shape
+		r2_l.append( lr.score( A_molw_test, yV[ test, 0]))
+
+	print 'R^2 mean, std -->', np.mean( r2_l), np.std( r2_l)
+
+	return r2_l
+
+
+def gs_Ridge_Asupervising_2fp( xM1, xM2, yV, s_l, alpha_l):
+	"""
+	This 2fp case uses two fingerprints at the same in order to 
+	combines their preprocessing versions separately. 
+	"""
+	r2_l2 = list()	
+	for alpha in alpha_l:
+		print alpha
+		r2_l = cv_Ridge_Asupervising_2fp( xM1, xM2, yV, s_l, alpha)
+		r2_l2.append( r2_l)
+	return r2_l2
+
+
+def cv_Ridge_Asupervising_2fp_molw( xM1, xM2, yV, s_l, alpha):
+	
+	lr = linear_model.Ridge( alpha = alpha)
+	kf5 = cross_validation.KFold( len(s_l), n_folds=5, shuffle=True)
+	r2_l = list()
+	
+	for train, test in kf5:
+		xM1_shuffle = np.concatenate( (xM1[ train, :], xM1[ test, :]), axis = 0)
+		xM2_shuffle = np.concatenate( (xM2[ train, :], xM2[ test, :]), axis = 0)
+		# print xM_shuffle.shape
+
+		A1_redundant = jpyx.calc_tm_sim_M( xM1_shuffle)
+		A1 = A1_redundant[ :, :len(train)]
+		A2_redundant = jpyx.calc_tm_sim_M( xM2_shuffle)
+		A2 = A2_redundant[ :, :len(train)]
+		#print 'A.shape', A.shape
+
+		s_l_shuffle = [s_l[x] for x in train] #train
+		s_l_shuffle.extend( [s_l[x] for x in test] ) #test
+		molw_l = jchem.rdkit_molwt( s_l_shuffle)
+		molwV = np.mat( molw_l).T
+
+		#A_molw = jchem.add_new_descriptor( A, molw_l)
+		print A1.shape, A2.shape, molwV.shape
+		A_molw = np.concatenate( (A1, A2, molwV), axis = 1)
+		print A_molw.shape
+
+		A_molw_train = A_molw[:len(train), :]
+		A_molw_test = A_molw[len(train):, :]
+
+		#print A_molw_train.shape, yV[ train, 0].shape
+		lr.fit( A_molw_train, yV[ train, 0])
+
+		#print A_molw_test.shape, yV[ test, 0].shape
+		r2_l.append( lr.score( A_molw_test, yV[ test, 0]))
+
+	print 'R^2 mean, std -->', np.mean( r2_l), np.std( r2_l)
+
+	return r2_l
+
+def gs_Ridge_Asupervising_2fp_molw( xM1, xM2, yV, s_l, alpha_l):
+	"""
+	This 2fp case uses two fingerprints at the same in order to 
+	combines their preprocessing versions separately. 
+	"""
+	r2_l2 = list()	
+	for alpha in alpha_l:
+		print alpha
+		r2_l = cv_Ridge_Asupervising_2fp_molw( xM1, xM2, yV, s_l, alpha)
+		r2_l2.append( r2_l)
+	return r2_l2
+
+def gs_Ridge_Asupervising_molw( xM, yV, s_l, alpha_l):
+	r2_l2 = list()	
+	for alpha in alpha_l:
+		print alpha
+		r2_l = cv_Ridge_Asupervising_molw( xM, yV, s_l, alpha)
+		r2_l2.append( r2_l)
+	return r2_l2
+
+def gs_Ridge_Asupervising( xM, yV, s_l, alpha_l):
+	r2_l2 = list()	
+	for alpha in alpha_l:
+		print alpha
+		r2_l = cv_Ridge_Asupervising( xM, yV, s_l, alpha)
+		r2_l2.append( r2_l)
+	return r2_l2
+
+def cv_Ridge_Asupervising( xM, yV, s_l, alpha):
+	
+	lr = linear_model.Ridge( alpha = alpha)
+	kf5 = cross_validation.KFold( xM.shape[0], n_folds=5, shuffle=True)
+	r2_l = list()
+	
+	for train, test in kf5:
+		xM_shuffle = np.concatenate( (xM[ train, :], xM[ test, :]), axis = 0)
+		# print xM_shuffle.shape
+
+		A_all = jpyx.calc_tm_sim_M( xM_shuffle)
+		A = A_all[ :, :len(train)]
+		#print 'A.shape', A.shape
+
+		s_l_shuffle = [s_l[x] for x in train] #train
+		s_l_shuffle.extend( [s_l[x] for x in test] ) #test
+		molw_l = jchem.rdkit_molwt( s_l_shuffle)
+
+		A_molw = A
+
+		A_molw_train = A_molw[:len(train), :]
+		A_molw_test = A_molw[len(train):, :]
+
+		#print A_molw_train.shape, yV[ train, 0].shape
+		lr.fit( A_molw_train, yV[ train, 0])
+
+		#print A_molw_test.shape, yV[ test, 0].shape
+		r2_l.append( lr.score( A_molw_test, yV[ test, 0]))
+
+	print 'R^2 mean, std -->', np.mean( r2_l), np.std( r2_l)
+
+	return r2_l
+
+
 
 def gs_RidgeByLasso_kf_ext( xM, yV, alphas_log_l):
 
@@ -837,14 +1239,14 @@ def gs_RidgeByLasso_kf_ext( xM, yV, alphas_log_l):
 
 	return score_l
 
-def gs_SVR( xM, yV, svr_parmas):
+def gs_SVR( xM, yV, svr_params):
 
 	print xM.shape, yV.shape
 
 	clf = svm.SVR()
 	#parmas = {'alpha': np.logspace(1, -1, 9)}
 	kf5 = cross_validation.KFold( xM.shape[0], n_folds=5, shuffle=True)
-	gs = grid_search.GridSearchCV( clf, svr_parmas, scoring = 'r2', cv = kf5, n_jobs = -1)
+	gs = grid_search.GridSearchCV( clf, svr_params, scoring = 'r2', cv = kf5, n_jobs = -1)
 
 	gs.fit( xM, yV.A1)
 
@@ -956,3 +1358,166 @@ def gs_SVRByLasso( xM, yV, alphas_log, svr_params):
 	print 'Average first stage scores', np.mean( score1_l)
 
 	return score_l, score1_l
+
+def gs_ElasticNet( xM, yV, en_params):
+
+	print xM.shape, yV.shape
+
+	clf = linear_model.ElasticNet()
+	kf5 = cross_validation.KFold( xM.shape[0], n_folds=5, shuffle=True)
+	gs = grid_search.GridSearchCV( clf, en_params, scoring = 'r2', cv = kf5, n_jobs = -1)
+
+	gs.fit( xM, yV)
+
+	return gs
+
+def gs_SVRByElasticNet( xM, yV, en_params, svr_params):
+
+	kf5_ext = cross_validation.KFold( xM.shape[0], n_folds=5, shuffle=True)
+
+	score1_l = []
+	score_l = []
+	for ix, (tr, te) in enumerate( kf5_ext):
+
+		print '{}th fold external validation stage ============================'.format( ix + 1)
+		xM_in = xM[ tr, :]
+		yV_in = yV[ tr, 0]
+
+		print 'First Ridge Stage'
+		gs1 = gs_ElasticNet( xM_in, yV_in, en_params)
+		print 'Best score:', gs1.best_score_
+		print 'Best param:', gs1.best_params_
+		print gs1.grid_scores_
+		score1_l.append( gs1.best_score_)
+
+
+		nz_idx = gs1.best_estimator_.sparse_coef_.indices
+		xM_in_nz = xM_in[ :, nz_idx]
+
+		print 'Second Lasso Stage'
+		gs2 = gs_SVR( xM_in_nz, yV_in, svr_params)
+		print 'Best score:', gs2.best_score_
+		print 'Best param:', gs2.best_params_
+		print gs2.grid_scores_
+
+		print 'External Validation Stage'
+		# Obtain prediction model by whole data including internal validation data
+		C = gs2.best_params_['C']
+		gamma = gs2.best_params_['gamma']
+		epsilon = gs2.best_params_['epsilon']
+
+		clf = svm.SVR( C = C, gamma = gamma, epsilon = epsilon)
+		clf.fit( xM_in_nz, yV_in.A1)
+
+		xM_out = xM[ te, :]
+		yV_out = yV[ te, 0]
+		xM_out_nz = xM_out[:, nz_idx]
+		score = clf.score( xM_out_nz, yV_out.A1)
+
+		print score		
+		score_l.append( score)
+
+		print ''
+
+	print 'all scores:', score_l
+	print 'average scores:', np.mean( score_l)
+
+	print 'First stage scores', score1_l
+	print 'Average first stage scores', np.mean( score1_l)
+
+	return score_l, score1_l
+
+def gs_GPByLasso( xM, yV, alphas_log):
+
+	kf5_ext = cross_validation.KFold( xM.shape[0], n_folds=5, shuffle=True)
+
+	score1_l = []
+	score_l = []
+	for ix, (tr, te) in enumerate( kf5_ext):
+
+		print '{}th fold external validation stage ============================'.format( ix + 1)
+		xM_in = xM[ tr, :]
+		yV_in = yV[ tr, 0]
+
+		print 'First Ridge Stage'
+		gs1 = gs_Lasso( xM_in, yV_in, alphas_log)
+		print 'Best score:', gs1.best_score_
+		print 'Best param:', gs1.best_params_
+		print gs1.grid_scores_
+		score1_l.append( gs1.best_score_)
+
+
+		nz_idx = gs1.best_estimator_.sparse_coef_.indices
+		xM_in_nz = xM_in[ :, nz_idx]
+
+		print 'Second GP Stage'		
+		Xa_in_nz = np.array( xM_in_nz)
+		ya_in = np.array( yV_in)
+
+		xM_out = xM[ te, :]
+		yV_out = yV[ te, 0]
+		xM_out_nz = xM_out[:, nz_idx]
+		Xa_out_nz = np.array( xM_out_nz)
+		ya_out = np.array( yV_out)
+
+		#jgp = gp.GaussianProcess( Xa_in_nz, ya_in, Xa_out_nz, ya_out)
+		# the y array should be send as [:,0] form to be sent as vector array
+		jgp = gp.GaussianProcess( Xa_in_nz, ya_in[:,0], Xa_out_nz, ya_out[:,0])
+		jgp.optimize_noise_and_amp()
+		jgp.run_gp()
+
+		#ya_out_pred = np.mat(jgp.predicted_targets)
+		ya_out_pred = jgp.predicted_targets
+		#print ya_out[:,0].shape, jgp.predicted_targets.shape
+
+		r2, rmse = regress_show( ya_out[:,0], ya_out_pred)
+
+		score = r2
+		print score		
+		score_l.append( score)
+
+		print ''
+
+	print 'all scores:', score_l
+	print 'average scores:', np.mean( score_l)
+
+	print 'First stage scores', score1_l
+	print 'Average first stage scores', np.mean( score1_l)
+
+	return score_l, score1_l
+
+def show_gs_alpha( grid_scores):
+	alphas = np.array([ x[0]['alpha'] for x in grid_scores])
+	r2_mean = np.array([ x[1] for x in grid_scores])
+	r2_std = np.array([ np.std(x[2]) for x in grid_scores])
+	
+	r2_mean_pos = r2_mean + r2_std
+	r2_mean_neg = r2_mean - r2_std
+
+	plt.semilogx( alphas, r2_mean, 'x-', label = 'E[$r^2$]')
+	plt.semilogx( alphas, r2_mean_pos, ':k', label = 'E[$r^2$]+$\sigma$')
+	plt.semilogx( alphas, r2_mean_neg, ':k', label = 'E[$r^2$]-$\sigma$')
+	plt.grid()
+	plt.legend( loc = 2)
+	plt.show()
+
+	best_idx = np.argmax( r2_mean)
+	best_r2_mean = r2_mean[ best_idx]
+	best_r2_std = r2_std[ best_idx]
+	best_alpha = alphas[ best_idx]
+
+	print "Best: r2(alpha = {0}) -> mean:{1}, std:{2}".format( best_alpha, best_r2_mean, best_r2_std)
+
+def count( a_l, a, inverse = False):
+	"""
+	It returns the number of elements which are equal to 
+	the target value. 
+	In order to resolve when x is an array with more than
+	one dimensions, converstion from array to list is used. 
+	"""
+	if inverse == False:
+		x = np.where( np.array( a_l) == a)
+	else: 
+		x = np.where( np.array( a_l) != a)
+
+	return len(x[0].tolist())

@@ -141,6 +141,39 @@ def calc_tm_sim_M( xM):
 
 	return A
 
+def calc_tm_sim_M_pyx( xM):
+	"""
+	Ex. A = calc_tm_sim_M( np.array( xM, dtype = long)
+	"""
+
+	ln = xM.shape[0]
+	lm = xM.shape[1]
+	A = np.zeros( (ln,ln))
+	#ix, iy, ii
+	a = np.zeros( ln, dtype = long)
+	a_ix = 0
+	#c
+	
+	for ix in range( ln):
+		a_ix = 0
+		for ii in range( lm):
+			a_ix += xM[ix, ii]
+		#print ix, a_ix
+		a[ix] = a_ix
+	
+	for ix in range( ln):
+		for iy in range( ln):
+			c = 0
+			for ii in range( lm):
+				c += xM[ix, ii] & xM[iy, ii]   
+				
+			if a[ix] == 0 and a[iy] == 0:
+				A[ ix, iy] = 0.0
+			else:
+				A[ ix, iy] = float( c) / (a[ix] + a[iy] - c)
+			
+	return A
+
 def get_babel( fname, disp = True):
 	"""
 	Open babel output file such as aqds.fp_int

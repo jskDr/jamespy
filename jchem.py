@@ -2,13 +2,17 @@ from rdkit import Chem
 from rdkit.Chem import AllChem
 from rdkit.Chem import Draw
 from rdkit import DataStructs
+from rdkit.Chem import MACCSkeys
+from rdkit.Chem import FragmentCatalog
 
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+import os
 
 # This is James Sungjin Kim's library
 import jutil
+
 
 def _show_mol_r0( smiles = 'C1=CC=CC=C1', name_tag = False):
 	"""
@@ -16,10 +20,10 @@ def _show_mol_r0( smiles = 'C1=CC=CC=C1', name_tag = False):
 	The procedure follows:
 	- 
 	First, benzene can be defined as follows. 
-    Before defining molecule, the basic library of rdkit can be loaded using the import command.
+	Before defining molecule, the basic library of rdkit can be loaded using the import command.
 
-    Second, the 2D coordination of the molecule can be calculated. 
-    For coordination calculation, AllChem sub-tool should be included.
+	Second, the 2D coordination of the molecule can be calculated. 
+	For coordination calculation, AllChem sub-tool should be included.
 
 	Third, the molecular graph is drawn and save it 
 	so as to see in the picture manipulation tool. 
@@ -48,10 +52,10 @@ def show_mol( smiles = 'C1=CC=CC=C1', name_tag = False, idx = None, disp = False
 	The procedure follows:
 	- 
 	First, benzene can be defined as follows. 
-    Before defining molecule, the basic library of rdkit can be loaded using the import command.
+	Before defining molecule, the basic library of rdkit can be loaded using the import command.
 
-    Second, the 2D coordination of the molecule can be calculated. 
-    For coordination calculation, AllChem sub-tool should be included.
+	Second, the 2D coordination of the molecule can be calculated. 
+	For coordination calculation, AllChem sub-tool should be included.
 
 	Third, the molecular graph is drawn and save it 
 	so as to see in the picture manipulation tool. 
@@ -91,10 +95,10 @@ def _show_mol_r0( smiles = 'C1=CC=CC=C1', name_tag = False, idx = None):
 	The procedure follows:
 	- 
 	First, benzene can be defined as follows. 
-    Before defining molecule, the basic library of rdkit can be loaded using the import command.
+	Before defining molecule, the basic library of rdkit can be loaded using the import command.
 
-    Second, the 2D coordination of the molecule can be calculated. 
-    For coordination calculation, AllChem sub-tool should be included.
+	Second, the 2D coordination of the molecule can be calculated. 
+	For coordination calculation, AllChem sub-tool should be included.
 
 	Third, the molecular graph is drawn and save it 
 	so as to see in the picture manipulation tool. 
@@ -129,10 +133,10 @@ def showmol( smiles = 'C1=CC=CC=C1', name_tag = False, idx = None, sanitize = Tr
 	The procedure follows:
 	- 
 	First, benzene can be defined as follows. 
-    Before defining molecule, the basic library of rdkit can be loaded using the import command.
+	Before defining molecule, the basic library of rdkit can be loaded using the import command.
 
-    Second, the 2D coordination of the molecule can be calculated. 
-    For coordination calculation, AllChem sub-tool should be included.
+	Second, the 2D coordination of the molecule can be calculated. 
+	For coordination calculation, AllChem sub-tool should be included.
 
 	Third, the molecular graph is drawn and save it 
 	so as to see in the picture manipulation tool. 
@@ -177,7 +181,61 @@ def _calc_corr_r0( smilesArr, radius = 2, nBits = 1024):
 
 	return A
 
+def get_xM( s_l, radius = 4, nBits = 1024):
+	"""
+	Extract smiles codes and then convert them to fingerprint matrix.
+	"""
+
+	#s_l = pdr[ smiles_id].tolist()
+	m_l = map( Chem.MolFromSmiles, s_l)
+	fp_l = [AllChem.GetMorganFingerprintAsBitVect(m, radius = radius, nBits = nBits) for m in m_l]
+	xM  = np.mat( fp_l)
+
+	return xM
+
+def get_fpV( s_l, radius = 4, nBits = 1024):
+	"""
+	Extract smiles codes and then convert them to fingerprint matrix.
+	"""
+
+	#s_l = pdr[ smiles_id].tolist()
+	m_l = map( Chem.MolFromSmiles, s_l)
+	fp_l = [AllChem.GetMorganFingerprintAsBitVect(m, radius = radius, nBits = nBits).ToBitString() for m in m_l]
+
+	return fp_l
+
+def get_fpD( s_l, radius = 4, nBits = 1024):
+	"""
+	Extract smiles codes and then convert them to fingerprint matrix.
+	"""
+
+	#s_l = pdr[ smiles_id].tolist()
+	m_l = map( Chem.MolFromSmiles, s_l)
+	fp_l = [AllChem.GetMorganFingerprintAsBitVect(m, radius = radius, nBits = nBits).ToBitString() for m in m_l]
+
+	fp_int_l = {}
+	fp_int_l['list'] = [ int(fp, base=2) for fp in fp_l]
+	fp_int_l['nBits'] = nBits
+
+	return fp_int_l
+
+
+
+
 def calc_corr( smilesArr, radius = 2, nBits = 1024):
+	ms_mid = [Chem.MolFromSmiles( m_sm) for m_sm in smilesArr]	
+	f_m = [AllChem.GetMorganFingerprintAsBitVect(x, radius, nBits) for x in ms_mid]
+
+	Nm = len(f_m)
+	A = np.zeros( (Nm, Nm))
+
+	for (m1, f1) in enumerate(f_m):
+			for (m2, f2) in enumerate(f_m):
+				# print( "Base:{0}, Target:{1}".format( ms_smiles_base.keys()[bx], ms_smiles_mid.keys()[mx]))
+				A[m1, m2] =  DataStructs.TanimotoSimilarity( f1, f2)
+	return A
+
+def calc_corr_r4( smilesArr, radius = 4, nBits = 1024):
 	ms_mid = [Chem.MolFromSmiles( m_sm) for m_sm in smilesArr]	
 	f_m = [AllChem.GetMorganFingerprintAsBitVect(x, radius, nBits) for x in ms_mid]
 
@@ -219,26 +277,26 @@ class jfingerprt_circular():
 		return fps_mid
 
 	def similarity( self, ms_smiles_mid, ms_smiles_base):
-	    """
-	    Input: dictionary type required such as {nick name: smiles code, ...}
-	    """
+		"""
+		Input: dictionary type required such as {nick name: smiles code, ...}
+		"""
 
-	    """
-	    # Processing for mid
-	    print( "Target: {}".format( ms_smiles_mid.keys()))
-	    fps_mid = self.smiles_to_ff( ms_smiles_mid.values())
+		"""
+		# Processing for mid
+		print( "Target: {}".format( ms_smiles_mid.keys()))
+		fps_mid = self.smiles_to_ff( ms_smiles_mid.values())
 
-	    #processing for base
-	    print( "Base: {}".format( ms_smiles_base.keys()))
-	    fps_base = self.smiles_to_ff( ms_smiles_base.values())
-	    """
+		#processing for base
+		print( "Base: {}".format( ms_smiles_base.keys()))
+		fps_base = self.smiles_to_ff( ms_smiles_base.values())
+		"""
 
-	    for idx in ["mid", "base"]:
-	    	ms_smiles = eval( 'ms_smiles_{}'.format( idx))
-	    	print( '{0}: {1}'.format( idx.upper(), ms_smiles.keys()))	    	
-	    	exec( 'fps_{} = self.smiles_to_ff( ms_smiles.values())'.format( idx))
+		for idx in ["mid", "base"]:
+			ms_smiles = eval( 'ms_smiles_{}'.format( idx))
+			print( '{0}: {1}'.format( idx.upper(), ms_smiles.keys()))	    	
+			exec( 'fps_{} = self.smiles_to_ff( ms_smiles.values())'.format( idx))
 
-	    return fps_base, fps_mid	
+		return fps_base, fps_mid	
 
 	def return_similarity( self, ms_smiles_mid, ms_smiles_base, property_of_base = None):
 		fps_base, fps_mid = self.similarity( ms_smiles_mid, ms_smiles_base)
@@ -712,26 +770,28 @@ def fpM_pat( xM):
 	plt.ylabel('Aggreation number')
 	plt.show()
 
-def gen_input_files( A, yV):
+def gen_input_files( A, yV, fname_common = 'ann'):
 	"""
 	Input files of ann_in.data and ann_run.dat are gerneated.
-	The files are used in ann_aq.c (./ann_aq) 
-	* Input: A is matrix, yV is vector
+	ann_in.data and ann_run.data are training and testing data, respectively
+	where ann_run.data does not includes output values.
+	The files can be used in ann_aq.c (./ann_aq) 
+	* Input: A is a matrix, yV is a vector with numpy.mat form.
 	"""
 	# in file
 	no_of_set = A.shape[0]
 	no_of_input = A.shape[1]
 	const_no_of_output = 1 # Now, only 1 output is considerd.
-	with open("ann_in.data", "w") as f:
+	with open("{}_in.data".format( fname_common), "w") as f:
 		f.write( "%d %d %d\n" % (no_of_set, no_of_input, const_no_of_output))
 		for ix in range( no_of_set):
 			for iy in range( no_of_input):
 				f.write( "{} ".format(A[ix,iy]))
 			f.write( "\n{}\n".format( yV[ix,0]))
-		print("ann_in.data is saved")
+		print("{}_in.data is saved for trainig.".format( fname_common))
 
 	# run file 
-	with open("ann_run.data", "w") as f:
+	with open("{}_run.data".format( fname_common), "w") as f:
 		#In 2015-4-9, the following line is modified since it should not be 
 		#the same to the associated line in ann_in data but it does not include the output length. 
 		f.write( "%d %d\n" % (no_of_set, no_of_input))
@@ -739,7 +799,7 @@ def gen_input_files( A, yV):
 			for iy in range( no_of_input):
 				f.write( "{} ".format(A[ix,iy]))
 			f.write( "\n") 
-		print("ann_run.data is saved")
+		print("{}_run.data is saved for testing.".format( fname_common))
 
 def gen_input_files_valid( At, yt, Av):
 	"""
@@ -863,6 +923,36 @@ def estimate_accuracy( yv, yv_ann, disp = False):
 		#print "s_y_unbias =", s_y_unbias
 
 	return r_sqr[0,0], RMSE[0,0]
+
+def to1D( A):
+	"""
+	Regardless of a type of A is array or matrix, 
+	to1D() return 1D numpy array.	
+	"""
+	return np.array(A).flatten()
+
+
+def estimate_score3( yv, yv_ann, disp = False):
+	"""
+	The two column matrix is compared in this function and 
+	It calculates RMSE and r_sqr.
+	"""
+	yv = to1D( yv)
+	yv_ann = to1D( yv_ann)
+
+	print "The shape values of yv and yv_ann are", yv.shape, yv_ann.shape
+	if not( yv.shape[0] > 0 and yv.shape[0] == yv_ann.shape[0]):
+		raise TypeError("The length of the input vectors should be equal and more than zero.")
+
+	e = yv - yv_ann
+	MAE = np.average( np.abs( e))
+	RMSE = np.sqrt( np.average( np.power( e, 2)))
+	r_sqr = 1.0 - np.average( np.power( e, 2)) / np.average( np.power( yv - np.mean( yv), 2))
+
+	if disp:
+		print "r_sqr = {0:.3e}, RMSE = {1:.3e}, MAE = {2:.3e}".format( r_sqr, RMSE, MAE)
+
+	return r_sqr, RMSE, MAE
 
 
 class FF_W:
@@ -1147,8 +1237,8 @@ class FF_W:
 
 
 	def read_data( self, fname_csv = 'sheet/solubility-sorted-csv.csv',\
-       x_field_name = 'Smile',\
-       y_field_name = 'Water Solubility Estimate from Log Kow (WSKOW v1.41): Water Solubility at 25 deg C (mol/L)'):
+	   x_field_name = 'Smile',\
+	   y_field_name = 'Water Solubility Estimate from Log Kow (WSKOW v1.41): Water Solubility at 25 deg C (mol/L)'):
 		"""
 		fname_csv = 'sheet/solubility-sorted-csv.csv'
 		x_filed_name = 'Smile'
@@ -1525,13 +1615,152 @@ def pd_refine_smiles( pdr, smiles_id = 'SMILES'):
 
 def add_new_descriptor( xM, desc_list):
 	xMT_l = xM.T.tolist()
-	print np.shape(xMT_l)
+	#print np.shape(xMT_l)
+
 	xMT_l.append( desc_list)
-	print np.shape(xMT_l)
+	#print np.shape(xMT_l)
+
 	xM_add = np.mat( xMT_l).T
 	print xM_add.shape
+
 	return xM_add
 
 def rdkit_molwt( smiles_l):
 	molw_l = [ Chem.rdMolDescriptors.CalcExactMolWt( Chem.MolFromSmiles(x)) for x in smiles_l]
 	return molw_l 
+
+def rdkit_mol( smiles_l):
+	mol_l = [Chem.MolFromSmiles(x) for x in smiles_l]
+
+	return mol_l
+
+def rdkit_LabuteASA( smiles_l):
+	mol_l =	rdkit_mol( smiles_l)
+	lasa_l = [ Chem.rdMolDescriptors.CalcLabuteASA( x) for x in mol_l]
+	return lasa_l
+
+def get_xM_MACCSkeys( s_l):
+	"""
+	Extract smiles codes and then convert them to fingerprint matrix.
+	"""
+
+	# s_l = pdr[ smiles_id].tolist()
+	m_l = map( Chem.MolFromSmiles, s_l)
+	fp_l = map( MACCSkeys.GenMACCSKeys, m_l)
+	xM  = np.mat( fp_l)
+
+	return xM
+
+def get_xM_molw( s_l):
+	
+	molw_l = rdkit_molwt( s_l)
+
+	return np.mat( molw_l).T
+
+def get_xM_lasa( s_l):
+	
+	molw_l = rdkit_LabuteASA( s_l)
+
+	return np.mat( molw_l).T
+
+get_xM_maccs = get_xM_MACCSkeys
+
+def get_xM_ensemble( s_l, ds_l = ['molw', 'lsas']):
+	xM_l = list()
+	for ds in ds_l:
+		xM_l.append( eval( 'get_xM_{}( s_l)'.format( ds)))
+
+	return np.concatenate( xM_l, axis = 1)
+
+def rdkit_SLN2SMILES( sln_l):
+	m_l = map( Chem.rdSLNParse.MolFromSLN, sln_l)
+	smiles_l = map( Chem.MolToSmiles, m_l)
+
+	return smiles_l
+
+def csmiles( smiles, disp = False):
+	"""
+	csmiles() returns canonical SMILES. 
+	"""
+	m = Chem.MolFromSmiles( smiles)
+	csmiles = Chem.MolToSmiles( m)
+
+	if  disp:
+		print smiles
+		print csmiles
+
+		if smiles == csmiles:
+			print 'Match'
+		else:
+			print 'Not match'
+
+	return csmiles
+
+def matches_each( s, p, disp = False):
+	"""
+	find a substructure for the given molecule.
+	"""
+	m = Chem.MolFromSmiles( s)
+	patt = Chem.MolFromSmarts( p)
+
+	r = m.GetSubstructMatches(patt)
+
+	if disp:
+		print len(r), 'times:', r
+
+	return r
+
+def matches( s_l, p, disp = False):
+	"""
+	Find matches in list of molecules.
+	"""
+	c_l = list()
+	r_l = list()
+
+	r_l = [ matches_each(s, p, disp) for s in s_l]
+	c_l = map( len, r_l)
+
+	return c_l, r_l
+
+class Frag():
+	"""
+	This class investigate molecules whether they have a specific fragment.  
+	"""
+	def __init__( self, FunctionalGroups_txt = "FunctionalGroups.txt"):
+		fName=os.path.join(FunctionalGroups_txt)
+		self.fparams = FragmentCatalog.FragCatParams(1,6,fName)
+
+	def search( self, a_smiles = 'OC(=O)[C@H](CC(=O)O)N'):
+		"""
+		It results frag_map which indicates the map of matching fragments. 
+		If only the first fragment is matched, only the first element of the
+		vector is turned as True for example.  
+		"""
+		frag_map = list()
+		for indx in range(self.fparams.GetNumFuncGroups()):
+			patt = self.fparams.GetFuncGroup(indx)
+			m = Chem.MolFromSmiles( a_smiles)
+			match=m.HasSubstructMatch( patt)
+			frag_map.append( match)
+
+		return frag_map
+
+	def search_idx( self, frag_idx, s_l):
+		"""
+		It searches all molecules in a vector whether the molecules have
+		the given fragment. Hence, each element of the return vector is
+		corresponding to each element of a vector of SMILES. 
+		Moreover, exclusiveness is also tested by calculating a sum of  
+		frag_map. If the sum is more than one, it is not exclusive for single
+		fragment when the corresponding smiles_map is True. 
+		"""
+		smiles_map = list()
+		exclusive_map = list()
+		for s in s_l:
+			frag_map = self.search( s)
+			smiles_map.append(frag_map[ frag_idx] == True)
+			exclusive_map.append( sum( frag_map))
+
+		return smiles_map, exclusive_map
+
+
