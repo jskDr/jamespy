@@ -46,7 +46,7 @@ def _show_mol_r0( smiles = 'C1=CC=CC=C1', name_tag = False):
 	plt.imshow( img_m)
 	plt.show()
 
-def show_mol( smiles = 'C1=CC=CC=C1', name_tag = False, idx = None, disp = False):
+def show_mol( smiles = 'C1=CC=CC=C1', name_tag = False, idx = None, disp = False, graph = True, f_name = None):
 	"""
 	This function shows the molecule defined by smiles code.
 	The procedure follows:
@@ -82,12 +82,15 @@ def show_mol( smiles = 'C1=CC=CC=C1', name_tag = False, idx = None, disp = False
 		print cnonical_sm
 
 	tmp = AllChem.Compute2DCoords( m)
-	f_name = '{}.png'.format( 'smiles')
+	if f_name is None:
+		f_name = '{}.png'.format( 'smiles')
 	Draw.MolToFile(m, f_name)
 
-	img_m = plt.imread( f_name)
-	plt.imshow( img_m)
-	plt.show()
+	# For web service, plotting will be activated only if graph flag is true <2015-12-10>. 
+	if graph:
+		img_m = plt.imread( f_name)
+		plt.imshow( img_m)
+		plt.show()
 
 def _show_mol_r0( smiles = 'C1=CC=CC=C1', name_tag = False, idx = None):
 	"""
@@ -924,6 +927,35 @@ def estimate_accuracy( yv, yv_ann, disp = False):
 
 	return r_sqr[0,0], RMSE[0,0]
 
+def estimate_accuracy3( yv, yv_ann, disp = False):
+	"""
+	The two column matrix is compared in this function and 
+	It calculates RMSE and r_sqr.
+	"""
+
+	print yv.shape, yv_ann.shape
+	if not( yv.shape[0] > 0 and yv.shape[1] == 1 and yv.shape == yv_ann.shape):
+		raise TypeError( 'Both input data matrices must be column vectors.')
+
+	e = yv - yv_ann
+	se = e.T * e
+	aae = np.average( np.abs( e))
+	RMSE = np.sqrt( se / len(e))
+
+	# print "RMSE =", RMSE
+	y_unbias = yv - np.mean( yv)
+	s_y_unbias = y_unbias.T * y_unbias
+	r_sqr = 1.0 - se/s_y_unbias
+
+	if disp:
+		print "r_sqr = {0:.3e}, RMSE = {1:.3e}, AAE = {2:.3e}".format( r_sqr[0,0], RMSE[0,0], aae)
+
+		#print "len(e) = ", len(e)
+		#print "se = ", se
+		#print "s_y_unbias =", s_y_unbias
+
+	return r_sqr[0,0], RMSE[0,0], aae	
+
 def to1D( A):
 	"""
 	Regardless of a type of A is array or matrix, 
@@ -940,7 +972,9 @@ def estimate_score3( yv, yv_ann, disp = False):
 	yv = to1D( yv)
 	yv_ann = to1D( yv_ann)
 
-	print "The shape values of yv and yv_ann are", yv.shape, yv_ann.shape
+	if disp:
+		print "The shape values of yv and yv_ann are", yv.shape, yv_ann.shape
+		
 	if not( yv.shape[0] > 0 and yv.shape[0] == yv_ann.shape[0]):
 		raise TypeError("The length of the input vectors should be equal and more than zero.")
 
@@ -1696,6 +1730,20 @@ def csmiles( smiles, disp = False):
 
 	return csmiles
 
+def csmiles_l( smiles_l):
+	"""
+	[Name]
+	csmiles_l - Transform into Canonical SMILES strings
+
+	[Description]
+	csmiles_l( smiles_l)
+
+	Return the canonical SMILES string list transformed from 
+	the input SMILES string list. 
+	"""
+	m_l = map( Chem.MolFromSmiles, smiles_l)
+	return map( Chem.MolToSmiles, m_l)
+
 def matches_each( s, p, disp = False):
 	"""
 	find a substructure for the given molecule.
@@ -1713,6 +1761,8 @@ def matches_each( s, p, disp = False):
 def matches( s_l, p, disp = False):
 	"""
 	Find matches in list of molecules.
+	c_l, r_l = matches( s_l, p, ...)
+	where c_l is the number of matching points and r_l is a index of matching positions.
 	"""
 	c_l = list()
 	r_l = list()
@@ -1763,4 +1813,24 @@ class Frag():
 
 		return smiles_map, exclusive_map
 
+def _r0_valid_smiles( smiles):
+	"""
+	This function test a SMILES string whether it is valid or not. 
+	"""
+	try:
+		#print "Hello"
+		#return False		
+		mol = Chem.MolFromSmiles( smiles)
+		if mol is None:
+			return False
+		else:
+			Chem.MolToSmiles( mol)
+			return True
+	except: 
+		return False
 
+def valid_smiles( smiles):
+	"""
+	This function test a SMILES string whether it is valid or not. 
+	"""
+	return( Chem.MolFromSmiles( smiles))

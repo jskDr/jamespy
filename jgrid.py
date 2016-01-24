@@ -5,12 +5,11 @@ grid search codes for machine learning
 from sklearn import cross_validation, cross_validation, grid_search, linear_model, svm
 import numpy as np
 import pandas as pd
+from operator import itemgetter
 
 import jutil
 import jpyx
-
-from operator import itemgetter
-
+from jsklearn import binary_model
 
 def gs_Lasso( xM, yV, alphas_log = (-1, 1, 9), n_folds=5, n_jobs = -1):
 
@@ -156,8 +155,6 @@ def gs_Ridge_Asupervising_2fp( xM1, xM2, yV, s_l, alpha_l):
 		r2_l = cv_Ridge_Asupervising_2fp( xM1, xM2, yV, s_l, alpha)
 		r2_l2.append( r2_l)
 	return r2_l2
-
-
 
 
 def _cv_LinearRegression_r0( xM, yV):
@@ -805,6 +802,25 @@ def gs_Ridge( xM, yV, alphas_log = (1, -1, 9), n_folds = 5, n_jobs = -1):
 
 	return gs
 
+def gs_Ridge_BIKE( A_list, yV, XX = None, alphas_log = (1, -1, 9), n_folds = 5, n_jobs = -1):
+	"""
+	As is a list of A matrices where A is similarity matrix. 
+	X is a concatened linear descriptors. 
+	If no X is used, X can be empty
+	"""
+
+	clf = binary_model.BIKE_Ridge( A_list, XX)
+	parmas = {'alpha': np.logspace( *alphas_log)}
+	ln = A_list[0].shape[0] # ls is the number of molecules.
+
+	kf_n = cross_validation.KFold( ln, n_folds=n_folds, shuffle=True)
+	gs = grid_search.GridSearchCV( clf, parmas, scoring = 'r2', cv = kf_n, n_jobs = n_jobs)
+	
+	AX_idx = np.array([range( ln)]).T
+	gs.fit( AX_idx, yV)
+
+	return gs
+
 def cv( method, xM, yV, alpha, n_folds = 5, n_jobs = -1, grid_std = None):
 	"""
 	method can be 'Ridge', 'Lasso'
@@ -815,6 +831,20 @@ def cv( method, xM, yV, alpha, n_folds = 5, n_jobs = -1, grid_std = None):
 	clf = getattr( linear_model, method)( alpha = alpha)
 	kf_n = cross_validation.KFold( xM.shape[0], n_folds=n_folds, shuffle=True)
 	yV_pred = cross_validation.cross_val_predict( clf, xM, yV, cv = kf_n, n_jobs = n_jobs)
+
+	print 'The prediction output using cross-validation is given by:'
+	jutil.cv_show( yV, yV_pred, grid_std = grid_std)
+
+	return yV_pred
+
+def cv_Ridge_BIKE( A_list, yV, XX = None, alpha = 0.5, n_folds = 5, n_jobs = -1, grid_std = None):
+
+	clf = binary_model.BIKE_Ridge( A_list, XX, alpha = alpha)
+	ln = A_list[0].shape[0] # ls is the number of molecules.
+	kf_n = cross_validation.KFold( ln, n_folds=n_folds, shuffle=True)
+
+	AX_idx = np.array([range( ln)]).T
+	yV_pred = cross_validation.cross_val_predict( clf, AX_idx, yV, cv = kf_n, n_jobs = n_jobs)
 
 	print 'The prediction output using cross-validation is given by:'
 	jutil.cv_show( yV, yV_pred, grid_std = grid_std)

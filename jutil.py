@@ -3,7 +3,7 @@ some utility which I made.
 Editor - Sungjin Kim, 2015-4-17
 """
 #Common library
-from sklearn import linear_model, svm, cross_validation, grid_search
+from sklearn import linear_model, svm, cross_validation, grid_search, metrics
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -62,10 +62,39 @@ def mlr( RM, yE, disp = True, graph = True):
 	clf.fit( RM, yE)
 	mlr_show( clf, RM, yE, disp = disp, graph = graph)
 
+def mlr3( RM, yE, disp = True, graph = True):
+	clf = linear_model.LinearRegression()
+	clf.fit( RM, yE)
+	mlr_show3( clf, RM, yE, disp = disp, graph = graph)
+
+def mlr3_coef( RM, yE, disp = True, graph = True):
+	clf = linear_model.LinearRegression()
+	clf.fit( RM, yE)
+	mlr_show3( clf, RM, yE, disp = disp, graph = graph)	
+
+	return clf.coef_, clf.intercept_
+
+def mlr4_coef( RM, yE, disp = True, graph = True):
+	clf = linear_model.LinearRegression()
+	clf.fit( RM, yE)
+	mlr_show4( clf, RM, yE, disp = disp, graph = graph)	
+
+	return clf.coef_, clf.intercept_
+
 def mlr_ridge( RM, yE, alpha = 0.5, disp = True, graph = True):
 	clf = linear_model.Ridge( alpha = alpha)
 	clf.fit( RM, yE)
 	mlr_show( clf, RM, yE, disp = disp, graph = graph)
+
+def mlr3_coef_ridge( RM, yE, alpha = 0.5, disp = True, graph = True):
+	"""
+	Return regression coefficients and intercept
+	"""
+	clf = linear_model.Ridge( alpha = alpha)
+	clf.fit( RM, yE)
+	mlr_show( clf, RM, yE, disp = disp, graph = graph)
+
+	return clf.coef_, clf.intercept_
 
 def ann_pre( RM, yE, disp = True, graph = True):
 	"""
@@ -186,7 +215,7 @@ def regress_show3( yEv, yEv_calc, disp = True, graph = True, plt_title = None):
 	if graph:
 		#plt.scatter( yEv.tolist(), yEv_calc.tolist())	
 		plt.figure()	
-		ms_sz = max(min( 4000 / yEv.shape[0], 8), 1)
+		ms_sz = max(min( 6000 / yEv.shape[0], 8), 3)
 		plt.plot( yEv.tolist(), yEv_calc.tolist(), '.', ms = ms_sz) # Change ms 
 		ax = plt.gca()
 		lims = [
@@ -205,6 +234,36 @@ def regress_show3( yEv, yEv_calc, disp = True, graph = True, plt_title = None):
 		plt.show()
 	
 	return r_sqr, RMSE, MAE
+
+def regress_show4( yEv, yEv_calc, disp = True, graph = True, plt_title = None):
+
+	# if the output is a vector and the original is a metrix, 
+	# the output is translated to a matrix. 
+
+	r_sqr, RMSE, MAE, DAE = estimate_accuracy4( yEv, yEv_calc, disp = disp)
+	
+	if graph:
+		#plt.scatter( yEv.tolist(), yEv_calc.tolist())	
+		plt.figure()	
+		ms_sz = max(min( 6000 / yEv.shape[0], 8), 3)
+		plt.plot( yEv.tolist(), yEv_calc.tolist(), '.', ms = ms_sz) # Change ms 
+		ax = plt.gca()
+		lims = [
+			np.min([ax.get_xlim(), ax.get_ylim()]),  # min of both axes
+			np.max([ax.get_xlim(), ax.get_ylim()]),  # max of both axes
+		]
+		# now plot both limits against eachother
+		#ax.plot(lims, lims, 'k-', alpha=0.75, zorder=0)
+		ax.plot(lims, lims, '-', color = 'pink')
+		plt.xlabel('Experiment')
+		plt.ylabel('Prediction')
+		if plt_title:
+			plt.title( plt_title)
+		else:
+			plt.title( '$r^2$={0:.1e},$\sigma$={1:.1e},MAE={2:.1e},DAE={3:.1e}'.format( r_sqr, RMSE, MAE, DAE))
+		plt.show()
+	
+	return r_sqr, RMSE, MAE, DAE
 
 
 def cv_show( yEv, yEv_calc, disp = True, graph = True, grid_std = None):
@@ -267,6 +326,78 @@ def mlr_show( clf, RMv, yEv, disp = True, graph = True):
 		plt.show()
 
 	return r_sqr, RMSE
+
+
+def estimate_accuracy4(yEv, yEv_calc, disp = False):
+	"""
+	It was originally located in jchem. However now it is allocated here
+	since the functionality is more inline with jutil than jchem. 
+	"""
+
+	r_sqr = metrics.r2_score( yEv, yEv_calc)
+	RMSE = np.sqrt( metrics.mean_squared_error( yEv, yEv_calc))
+	MAE = metrics.mean_absolute_error( yEv, yEv_calc)
+	DAE = metrics.median_absolute_error( yEv, yEv_calc)
+
+	if disp:
+		print "r^2={0:.2e}, RMSE={1:.2e}, MAE={2:.2e}, DAE={3:.2e}".format( r_sqr, RMSE, MAE, DAE)
+
+	return r_sqr, RMSE, MAE, DAE
+
+def mlr_show3( clf, RMv, yEv, disp = True, graph = True):
+	yEv_calc = clf.predict( RMv)
+
+	if len( np.shape(yEv)) == 2 and len( np.shape(yEv_calc)) == 1:
+		yEv_calc = np.mat( yEv_calc).T
+
+	r_sqr, RMSE, aae = jchem.estimate_accuracy3( yEv, yEv_calc, disp = disp)
+	if graph:
+		plt.figure()
+		ms_sz = max(min( 4000 / yEv.shape[0], 8), 1)
+		plt.plot( yEv.tolist(), yEv_calc.tolist(), '.', ms = ms_sz)
+		ax = plt.gca()
+		lims = [
+			np.min([ax.get_xlim(), ax.get_ylim()]),  # min of both axes
+			np.max([ax.get_xlim(), ax.get_ylim()]),  # max of both axes
+		]
+		# now plot both limits against eachother
+		#ax.plot(lims, lims, 'k-', alpha=0.75, zorder=0)
+		ax.plot(lims, lims, '-', color = 'pink')
+		plt.xlabel('Experiment')
+		plt.ylabel('Prediction')
+		plt.title( '$r^2$={0:.2e}, RMSE={1:.2e}, AAE={2:.2e}'.format( r_sqr, RMSE, aae))
+		plt.show()
+
+	return r_sqr, RMSE, aae
+
+def mlr_show4( clf, RMv, yEv, disp = True, graph = True):
+	yEv_calc = clf.predict( RMv)
+
+	if len( np.shape(yEv)) == 2 and len( np.shape(yEv_calc)) == 1:
+		yEv_calc = np.mat( yEv_calc).T
+
+	r_sqr, RMSE, MAE, DAE = estimate_accuracy4( yEv, yEv_calc, disp = disp)
+
+	if graph:
+		plt.figure()
+		ms_sz = max(min( 4000 / yEv.shape[0], 8), 1)
+		plt.plot( yEv.tolist(), yEv_calc.tolist(), '.', ms = ms_sz)
+		ax = plt.gca()
+		lims = [
+			np.min([ax.get_xlim(), ax.get_ylim()]),  # min of both axes
+			np.max([ax.get_xlim(), ax.get_ylim()]),  # max of both axes
+		]
+		# now plot both limits against eachother
+		#ax.plot(lims, lims, 'k-', alpha=0.75, zorder=0)
+		ax.plot(lims, lims, '-', color = 'pink')
+		plt.xlabel('Experiment')
+		plt.ylabel('Prediction')
+		#plt.title( '$r^2$={0:.2e}, RMSE={1:.2e}, AAE={2:.2e}'.format( r_sqr, RMSE, aae))
+		plt.title( '$r^2$={0:.1e},$\sigma$={1:.1e},MAE={2:.1e},DAE={3:.1e}'.format( r_sqr, RMSE, MAE, DAE))
+		plt.show()
+
+	return r_sqr, RMSE, MAE, DAE
+
 
 def _mlr_val_r0( RM, yE, disp = True, graph = True):
 	clf = linear_model.LinearRegression()
@@ -1521,3 +1652,19 @@ def count( a_l, a, inverse = False):
 		x = np.where( np.array( a_l) != a)
 
 	return len(x[0].tolist())
+
+def show_cdf( data, xlabel_str = None, label_str = ''): 
+	"""
+	Show cdf graph of data which should be list or array in 1-D from.
+	xlabel_str is the name of x-axis.
+	show() is not included for aggregated plot controlling later. 
+	"""
+	data_sorted = np.sort( data)
+
+	# calculate the proportional values of samples
+	p = 1. * np.arange(len(data)) / (len(data) - 1)
+
+	plt.plot( data_sorted, p, label = label_str)
+	if xlabel_str:
+		plt.xlabel( xlabel_str)
+	plt.ylabel( 'Cumulative Fraction')

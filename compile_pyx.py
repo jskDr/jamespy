@@ -16,7 +16,7 @@ def run():
 		os.chdir( home + '/Dropbox/Aspuru-Guzik/python_lab/jamespy/')
 	elif platform.system() == "Darwin":
 		home = expanduser("~")
-		os.chdir( home + '/Dropbox/Aspuru-Guzik/python_lab/jamespy/')
+		os.chdir( home + '/Dropbox (Personal)/Aspuru-Guzik/python_lab/jamespy/')
 
 	if os.path.isfile('jpyx.so'):
 		os.remove('jpyx.so')

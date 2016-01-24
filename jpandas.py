@@ -13,11 +13,9 @@ from sklearn import linear_model, externals
 from IPython.display import display
 
 # This is James Sungjin Kim's library
-import jutil
-import jchem
-import jpyx
-import jquinone
-import jgrid
+import jutil, jchem, jpyx, jquinone, jgrid
+import jfile
+
 
 from maml.gp import gaussian_process as gp
 
@@ -1538,10 +1536,16 @@ def pdw_collect_same_sm( pdr, fname, y_id = 'total_energy', smiles_id = 'SMILES'
 
 	pdw.to_csv( fname, index = False)
 
-class PD_MBR_Solubiilty():
+
+class PD_MBR_Solubility():
 	def __init__(self, fname_model = 'sheet/model.pkl', mode = 'offline', 
-			fname_db = 'sheet/ws_all_smiles_496.csv', smiles_id = 'SMILES', y_id = 'Solubility_log_mol_l'): 
+			fname_db = 'sheet/ws_all_smiles_496.csv', smiles_id = 'SMILES', y_id = 'Solubility_log_mol_l',
+			graph = True, disp = True): 
 		# or mode = 'online'
+
+		# Now graph is turned on and off by a parameter of graph.
+		self.graph = graph
+		self.disp = disp
 
 		self.fname_model = fname_model
 		self.fname_db = fname_db
@@ -1552,7 +1556,7 @@ class PD_MBR_Solubiilty():
 		self.smiles_id = smiles_id
 		self.y_id = y_id
 
-		print '=== Read data ==='
+		if self.disp: print '=== Read data ==='
 		self.pdr = pd.read_csv( fname_db)
 		self.s_l = self.pdr[ self.smiles_id].tolist()
 		self.yV = pd_get_yV( self.pdr, y_id = self.y_id)
@@ -1620,13 +1624,14 @@ class PD_MBR_Solubiilty():
 
 		print 'IV. Convert to A1, A2 and AE = A1+A2+W'              
 		AW_db_data_ensemble = np.concatenate( (A_db_data['morgan'][:,:len( self.s_l)], 
-			A_db_data['maccs'][:,:len( self.s_l)], xM_db_data['weight']), axis = 1)
+								A_db_data['maccs'][:,:len( self.s_l)], xM_db_data['weight']), axis = 1)
 		print AW_db_data_ensemble.shape
 
 		print 'V. Prediction and Confirm using db data'
 		yV_data_db_pred = self.lm.predict( AW_db_data_ensemble)
-		print 'Training results for confirmation:'
-		jutil.regress_show( self.yV, yV_data_db_pred[:len(self.s_l),0])
+		if self.graph: 
+			print 'Training results for confirmation:'
+			jutil.regress_show( self.yV, yV_data_db_pred[:len(self.s_l),0])
 
 		print 'VI. Save results'
 
@@ -1636,6 +1641,88 @@ class PD_MBR_Solubiilty():
 		pdw_data.to_csv( fname_data[:-4] + '-sol-' + fname_db_base, index = False)
 
 		return yV_data_db_pred[len(self.s_l):,0]
+
+	def predict_fname(self, fname_data = 'sheet/diphenoquinone-only.csv'):
+		"""
+		The original function codes are separated into two parts which 
+		are a data loading part and a prediction part. Moreover,
+		the prediction part is used in common with single smiles. 
+		Even if predict() and predict_fname() are equivalent, the original
+		predict() is still remained and later it will be prohibited once
+		the functionality of predict_fanme() is proved to be the same with 
+		predict().
+		"""
+
+		print 'I. Load prediction data'
+		pdr_data = pd.read_csv( fname_data)
+
+		yV = self.predict_pdr( pdr_data)
+
+		print 'VI. Save results'
+		pdw_data = pdr_data.copy()
+		pdw_data['Solubility'] = yV.tolist()
+		# The final result can be referred by self.PDR_SOL
+		self.PDR_SOL = pdw_data
+
+		# The result filename can be accessed using FNAME_SOL
+		fname_db_base = os.path.basename( self.fname_db)
+		self.FNAME_SOL = fname_data[:-4] + '-sol-' + fname_db_base
+		pdw_data.to_csv( self.FNAME_SOL, index = False)
+
+		return yV		
+
+	def predict_pdr( self, pdr_data):
+		"""
+		All print command are changed to be disable if self.disp is False. 
+		"""
+
+		if self.disp: print 'I-2. Extract SMILES strings'
+		data_s_l = pdr_data.SMILES.tolist()
+		db_data_s_l = list()
+		db_data_s_l.extend( self.s_l)
+		db_data_s_l.extend( data_s_l)
+		if self.disp: print 'len( db_data_s_l ) = ', len( db_data_s_l ) 
+
+		if self.disp: print 'III. generate xM - morgan, maccs, weight'
+		xM_db_data = dict()
+		xM_db_data['morgan'] = jchem.get_xM( db_data_s_l, radius=6, nBits=4096)
+		xM_db_data['maccs'] = jchem.get_xM_MACCSkeys( db_data_s_l)
+		xM_db_data['weight'] = jchem.get_xM_molw( db_data_s_l)
+
+		A_db_data = dict()
+		for mode in ['morgan', 'maccs']:
+			#print mode
+			A_db_data[mode] = jpyx.calc_tm_sim_M( xM_db_data[mode])
+			#print A_db_data[mode].shape
+
+		if self.disp: print 'IV. Convert to A1, A2 and AE = A1+A2+W'              
+		AW_db_data_ensemble = np.concatenate( (A_db_data['morgan'][:,:len( self.s_l)], 
+								A_db_data['maccs'][:,:len( self.s_l)], xM_db_data['weight']), axis = 1)
+		if self.disp: print AW_db_data_ensemble.shape
+
+		if self.disp: print 'V. Prediction and Confirm using db data'
+		yV_data_db_pred = self.lm.predict( AW_db_data_ensemble)
+
+		if self.graph:
+			if self.disp: print 'Training results for confirmation:'
+			jutil.regress_show( self.yV, yV_data_db_pred[:len(self.s_l),0])
+
+		return yV_data_db_pred[len(self.s_l):,0]
+
+
+	def predict_smiles(self, smiles_l):
+		"""
+		Now a single smiles string is used to predict solubility. 
+		Hence, pdr_data is generated used this string. 
+		"""
+
+		#print 'I-1. Load prediction data'
+		#pdr_data = pd.read_csv( fname_data)
+		#print smiles_l
+		pdr_data = pd.DataFrame( {'SMILES': smiles_l})
+
+		return self.predict_pdr( pdr_data)
+
 
 	def score( self, fname_data = 'sheet/diphenoquinone-only.csv', y_id = 'exp'):
 
@@ -1671,9 +1758,101 @@ class PD_MBR_Solubiilty():
 
 		pd_concat( fname_data, self.fname_db, Nfile = Nfile)
 
+class PD_MBR_Solubility_Fast( PD_MBR_Solubility):
+	def __init__(self, fname_model = 'sheet/model.pkl', mode = 'offline', 
+			fname_db = 'sheet/ws_all_smiles_496.csv', smiles_id = 'SMILES', y_id = 'Solubility_log_mol_l',
+			graph = True, disp = True): 
+		
+		PD_MBR_Solubility.__init__(self, fname_model = fname_model, mode = mode, 
+									fname_db = fname_db, smiles_id = smiles_id, y_id = y_id, graph = graph, disp = disp)
+
+		fname_model_fast = fname_model[:-4]
+		if mode == 'offline':
+			if self.disp: 
+				print 'Calculated xM_db[morgan] and xM_db[maccs] will be loaded.'
+				print 'Loading file name:', fname_model_fast + '_xM_db_dict.pkl'
+			self.predict_pdr_pri_by_load( fname_model_fast)
+		else:
+			if self.disp: 
+				print 'xM_db[morgan] and xM_db[maccs] will be calculated and saved.'
+				print 'Saving file name:', fname_model_fast + '_xM_db_dict.pkl'
+			self.predict_pdr_pri_and_save( fname_model_fast)
+
+	def predict_pdr_pri_and_save( self, fname_model_fast):
+		self.predict_pdr_pri()
+
+		jfile.save_obj( self.xM_db, fname_model_fast + '_xM_db_dict')
+
+	def predict_pdr_pri_by_load( self, fname_model_fast):
+		#self.predict_pdr_pri()
+
+		self.xM_db = jfile.load_obj( fname_model_fast + '_xM_db_dict')
+
+	def predict_pdr_pri( self):
+		"""
+		The xM for training data should be stored for fast calculation.		
+		Otherwise, it should be calculated every time. 
+		Probably generating fingerprint takes no long time, while
+		calculation of similarity takes more time. 
+		Hence, for the first step I will reduce to calculate similarity of a new molecular group
+		instead of calculating both all training molecules and target molecules. 
+		"""
+
+		# At this time, this will be generated while it will be loaded in the next time. 
+		# The descriptors for non-binary values are not useful to predict new molecules. 
+		# Therefore, it will not be calculated any longer and will not be saved and loaded even in the later version.
+		if self.disp: print 'I-1. Generate sets of fingerprints for db.'
+		self.xM_db = dict()
+		self.xM_db['morgan'] = jchem.get_xM( self.s_l, radius=6, nBits=4096)
+		self.xM_db['maccs'] = jchem.get_xM_MACCSkeys( self.s_l)
+		#self.xM_db['weight'] = jchem.get_xM_molw( self.s_l)
+
+	def predict_pdr( self, pdr_data):
+		# self.predict_pdr_pri()
+		return self.predict_pdr_post( pdr_data)
+
+	def predict_pdr_post( self, pdr_data):
+		"""
+		All print command are changed to be disable if self.disp is False. 
+		This function will be upgraded to improve the prediction speed. 
+		Now it is not fast in order to calculate the training molecules whenever generating their descriptors.
+
+		I found that using lsar will give more performance advanced in solubility prediction than using only molw. 
+		Hence, lsar will be included as a descriptor and TM will be replaced by other one. 
+		"""
+
+		# This function will generate dictionary of xM_db,
+		# which will be loaded from the saved file instead of calculated every time 
+		# for enhancing prediction speed. 
+		if self.disp: print 'I-2. Extract SMILES strings'
+		data_s_l = pdr_data.SMILES.tolist()
+
+		xM_data = dict()
+		xM_data['morgan'] = jchem.get_xM( data_s_l, radius=6, nBits=4096)
+		xM_data['maccs'] = jchem.get_xM_MACCSkeys( data_s_l)
+		xM_data['weight'] = jchem.get_xM_molw( data_s_l)
+
+		# A_db is not used any longer since we will calculate only prediction for new data. 
+		A_data = dict()
+		for mode in ['morgan', 'maccs']:
+			# Now similarity is calculating only for xM_data based on xM_db,
+			# while previously, both prediction is performed for both xM_data and xM_db
+			# which takes much more than predicting only xM_data especially when 
+			# the number of molecules for predicting is much less than the number of training molecules. 
+			A_data[mode] = jpyx.calc_tm_sim_MM( xM_data[mode], self.xM_db[mode])
+			
+		if self.disp: print 'IV. Convert to A1, A2 and AE = A1+A2+W'              
+		AW_data_ensemble = np.concatenate( (A_data['morgan'], 
+								A_data['maccs'], xM_data['weight']), axis = 1)
+		if self.disp: print AW_data_ensemble.shape
+
+		if self.disp: print 'V. Prediction and Confirm using db data'
+		yV_data_pred = self.lm.predict( AW_data_ensemble)
+
+		return yV_data_pred
 
 
-class PD_MBR_Solubiilty_nomolw( PD_MBR_Solubiilty):
+class PD_MBR_Solubility_nomolw( PD_MBR_Solubility):
 
 	def __init__(self, fname_model = 'sheet/model.pkl', mode = 'offline', 
 			fname_db = 'sheet/ws_all_smiles_496.csv', smiles_id = 'SMILES', y_id = 'Solubility_log_mol_l'): 
@@ -1773,6 +1952,109 @@ class PD_MBR_Solubiilty_nomolw( PD_MBR_Solubiilty):
 
 		return yV_data_db_pred[len(self.s_l):,0]
 
+class PD_RedoxPotential( PD_MBR_Solubility):
+	def __init__(self, fname_model = None, mode = 'offline',
+			fname_db = 'sheet/cxcalc/Flavin533_2SMILES_P-RP(pH10).csv', 
+			smiles_id_l = ['SMILES', 'R-SMILES'], y_id = 'RP at pH10'):
+		# The other parameters are equivalent to the super class except one additional SMILES string.
+
+		if fname_model == None:
+			fname_model = fname_db[:-4] + ".pkl"
+
+		#super(PD_RedoxPotential, self).__init__(fname_model, mode, fname_db, smiles_id_l[0], y_id)
+		PD_MBR_Solubility.__init__(self, fname_model, mode, fname_db, smiles_id_l[0], y_id)
+
+		self.r_smiles_id = smiles_id_l[1]
+		self.rs_l = self.pdr[ self.r_smiles_id].tolist()
+
+	def modeling(self, alpha = 0.1):
+		print 'I. extract SMILES and yV'
+		plt.hist( self.yV)
+		plt.show()
+
+		print 'II. generate xM - morgan, maccs'
+		#s_l = self.pdr[self.smiles_id].tolist()
+		#rs_l = self.pdr[self.r_smiles_id].tolist()
+
+		xM1_l = jchem.get_xM( self.s_l)
+		xM1_r = jchem.get_xM( self.rs_l)
+		xM2_l = jchem.get_xM_MACCSkeys( self.s_l)
+		xM2_r = jchem.get_xM_MACCSkeys( self.rs_l)
+		# yV =  jpd.pd_get_yV( self.pdr, 'RP at pH10')
+
+		A1_l = jpyx.calc_tm_sim_M( xM1_l)
+		A1_r = jpyx.calc_tm_sim_M( xM1_r)
+		A2_l = jpyx.calc_tm_sim_M( xM2_l)
+		A2_r = jpyx.calc_tm_sim_M( xM2_r)
+		AW_ensemble = np.concatenate( [A1_l, A1_r, A2_l, A2_r], axis = 1)
+		
+		print "AW_ensemble.shape is", AW_ensemble.shape
+
+		print 'III. Fitting process'
+		lm = linear_model.Ridge( alpha = alpha)
+		lm.fit( AW_ensemble, self.yV)
+		yV_pred = lm.predict( AW_ensemble)
+
+		jutil.regress_show3( self.yV, yV_pred)
+
+		print 'V. dump model to', self.fname_model
+		externals.joblib.dump(lm, self.fname_model)     
+
+		self.lm = lm
+
+	def get_2A_db_data(self, db_s_l, data_s_l):
+		"""
+		Since two As are needed for each basic and reduced forms of a molecule,
+		we use this function to calculate the two As of Morgan and MACCS for each form. 
+		"""
+		# data_s_l = pdr_data.SMILES.tolist()
+		db_data_s_l = list()
+		db_data_s_l.extend( db_s_l)
+		db_data_s_l.extend( data_s_l)
+		print 'len( db_data_s_l ) = ', len( db_data_s_l ) 
+
+		xM_db_data = dict()
+		xM_db_data['morgan'] = jchem.get_xM( db_data_s_l)
+		xM_db_data['maccs'] = jchem.get_xM_MACCSkeys( db_data_s_l)
+
+		A_db_data = dict()
+		for mode in ['morgan', 'maccs']:
+			A_db_data[mode] = jpyx.calc_tm_sim_M( xM_db_data[mode])
+
+		return A_db_data
+
+	def predict(self, fname_data = 'sheet/cxcalc/flavins-mix3R_PlogSpH.csv'):
+
+		print 'I. Load prediction data'
+		pdr_data = pd.read_csv( fname_data)
+
+		data_s_l = pdr_data[self.smiles_id].tolist()
+		data_rs_l = pdr_data[self.r_smiles_id].tolist()
+
+		A  = self.get_2A_db_data( self.s_l, data_s_l)
+		rA = self.get_2A_db_data( self.rs_l, data_rs_l)
+
+		print 'IV. Convert to A1, A2 for morgan and rA1, rA2 for maccs, so A1+rA1 + A2+rA2'              
+		AW_db_data_ensemble = np.concatenate( (
+			A['morgan'][:,:len( self.s_l)],	rA['morgan'][:,:len( self.rs_l)], 
+			A['maccs'][:,:len( self.s_l)], rA['maccs'][:,:len( self.rs_l)]), axis = 1)
+		print AW_db_data_ensemble.shape
+
+		print 'V. Prediction and Confirm using db data'
+		yV_data_db_pred = self.lm.predict( AW_db_data_ensemble)
+		print 'Training results for confirmation:'
+		jutil.regress_show3( self.yV, yV_data_db_pred[:len(self.s_l),0])
+
+		print 'VI. Save results'
+
+		pdw_data = pdr_data.copy()
+		pdw_data['P-RP'] = yV_data_db_pred[len(self.s_l):,0].tolist()
+		fname_db_base = os.path.basename( self.fname_db)
+		pdw_data.to_csv( fname_data[:-4] + '-sol-' + fname_db_base, index = False)
+
+		return yV_data_db_pred[len(self.s_l):,0]
+
+
 def pd_get( fname_csv = 'sheet/ws496.csv'):
 	"""
 	We assume that similes_id is SMILES and y_id is exp. 
@@ -1834,7 +2116,6 @@ def pd_concat( fname_all, fname_db, Nfile):
 		print 'Shape becomes', pdw36796.shape
 
 	pdw36796.to_csv( fname_all[:-4] + '-sol-' + fname_db_base, index = False)
-
 
 def pd_aq1x( dfr_rafa, fg_l = [ '', '(C(=O)O)', '(N(C)C)', '(P(=O)(O)O)', '(O)', '(S(=O)(=O)O)']):
 	"""
@@ -2068,8 +2349,41 @@ def pd_predict_lm( fname_model, fname_data, N = None):
 
 	return yV_pred
 
+def pd_rp_predict_lm_each( fname_model, smiles, smiles_rd):
+	"""
+	First, it reads model, which has extension of pkl. 
+	Seconnd, it loads input data from pdr so that it generates xM
+	where xM is the concatenation of the left and the right SMILES strings. 
+
+	Now, there is no reft SMILES strings in Kaisang data, which should be generated late
+	in order to use this prediction code. 
+	"""
+	#print "1. The saved model is loaded where the file name of the model is", fname_model
+	lm = externals.joblib.load( fname_model)
+
+	#print "2. The prediction is performed."
+	xM_R = jchem.get_xM( [smiles])
+	xM_H = jchem.get_xM( [smiles_rd])
+	xM = np.concatenate( [xM_R, xM_H], axis = 1)
+
+	yV_pred = lm.predict( xM)
+
+	return yV_pred	
+
 def pd_group( pdr, colname, val):
 	"""
 	Returns the target group data after remving the associated column
 	"""
 	return pdr[ pdr[ colname] == val].drop( colname, 1).reset_index(drop=True)
+
+def pd_performnace( pdr, x_id = 'Predicted-RP', y_id = 'redox_potential'):
+	"""
+	The performance of regression is calculated from the regression results. 
+	Its performance metrics and the x-y scattering graph are shown.
+	r2, RMSE, AAE = pd_performnace( pdr = pdr36743, x_id = 'Predicted-RP', y_id = 'redox_potential'):
+	"""
+	x = pdr[x_id]
+	y = pdr[y_id]
+	xM = np.mat( x).T
+	yV = np.mat( y).T    
+	return jutil.regress_show3( yV, xM)

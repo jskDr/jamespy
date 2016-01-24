@@ -21,4 +21,28 @@ int prt( void)
 int prt_str( char* str)
 {
 	printf( "%s\n",  str);
+
+	return 0;
+}
+
+unsigned int bin_sum( unsigned int a, unsigned int b)
+{
+	unsigned int c;
+	c = a + b;
+
+	return c;
+}
+
+float sumup( int N) {
+    float s = 0;
+    int ii, jj, kk;
+
+    for( ii = 0; ii < N; ii++) {
+        for( jj = 0; jj < N; jj++) {
+            for( kk = 0; kk < N; kk++) {
+                s += ii * jj * kk + 0.01;
+            }
+        }
+    }
+    return s;
 }

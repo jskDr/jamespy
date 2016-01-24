@@ -60,7 +60,7 @@ def gen_input_files_valid_overfit( At, yt, Av, yv):
 
 
 
-def run_fann( num_hidden = 4, fname = "ann_ws496.net", fname_data_prefix = '', disp = True, graph = True):
+def run_fann( num_hidden = 4, fname = "ann_ws496.net", fname_data_prefix = '', n_iter = 100, disp = True, graph = True):
 	print "num_hidden =", num_hidden    
 	
 	fname_data_train = fname_data_prefix + "train_in.data"
@@ -91,7 +91,7 @@ def run_fann( num_hidden = 4, fname = "ann_ws496.net", fname_data_prefix = '', d
 	test_data.read_train_from_file( fname_data_test)
 	train_mse = list()
 	test_mse = list()
-	for ii in range(100):
+	for ii in range(n_iter):
 		# Training is performed with training data
 		ann.reset_MSE()
 		ann.train_on_data(train_data, max_iterations, iterations_between_reports, desired_error)
@@ -116,17 +116,21 @@ def run_fann( num_hidden = 4, fname = "ann_ws496.net", fname_data_prefix = '', d
 		plot( train_mse, label = 'train')
 		plot( test_mse, label = 'test')
 		legend( loc = 1)
+		xlabel('iteration')
+		ylabel('MSE')
 		grid()
 		show()
 	
 	return train_mse, test_mse
 
-def pd_run_fann( pdw, num_hidden = 4, fname = "ann_ws496.net", fname_data_prefix = '', disp = True, graph = True):
+def pd_run_fann( pdw, num_hidden = 4, fname = "ann_ws496.net", fname_data_prefix = '', n_iter = 100,  disp = True, graph = True):
 	"""
 	Uisng pandas, in order to manage data more professionally. 
 	The results will be stacked on a pandas dataframe. 
+	n_iter is included so as to control the iteration time which is fixed to be 100 previously.
 	"""
-	train_mse, test_mse = run_fann( num_hidden = num_hidden, fname = fname, fname_data_prefix = fname_data_prefix, disp = disp, graph = graph)
+	train_mse, test_mse = run_fann( num_hidden = num_hidden, fname = fname, 
+		fname_data_prefix = fname_data_prefix, n_iter = n_iter, disp = disp, graph = graph)
 	
 	#If pdw is empty, we can make an empty dataframe
 	# I found that if an empty array is used, the content can not be accesced later on in DataFrame().
@@ -168,7 +172,7 @@ def pd_run_fann( pdw, num_hidden = 4, fname = "ann_ws496.net", fname_data_prefix
 	return new_pdw
 
 class RunFANN():
-	def __init__(self, csv_name = 'sheet/ws496.csv', y_id = 'exp', graph = True, offline = False):
+	def __init__(self, csv_name = 'sheet/ws496.csv', y_id = 'exp', n_iter = 100, graph = True, offline = False):
 
 		fname_data_prefix = csv_name[:-4]
 
@@ -185,6 +189,8 @@ class RunFANN():
 				show()
 
 			self.kFold( xM, yV, fname_data_prefix = fname_data_prefix)
+
+			self.n_iter = n_iter
 
 	def kFold(self, xM, yV, fname_data_prefix = ''):
 		"""
@@ -205,10 +211,10 @@ class RunFANN():
 		In order to match between the input file names defined in the initialization and used in training and testing phases,
 		we use prefix now. 
 		"""
-		return pd_run_fann( pdw, num_hidden = num_hidden, fname = fname, fname_data_prefix = self.fname_data_prefix, disp = disp, graph = graph)
+		return pd_run_fann( pdw, num_hidden = num_hidden, fname = fname, fname_data_prefix = self.fname_data_prefix, n_iter = self.n_iter, disp = disp, graph = graph)
 
 class RunFANN_Dual( RunFANN):
-	def __init__(self, csv_name = 'sheet/ws496.csv', y_id = 'exp', graph = True, offline = False):
+	def __init__(self, csv_name = 'sheet/ws496.csv', y_id = 'exp', n_iter = 100, graph = True, offline = False):
 		"""
 		If offline is true, there is no need to write data again. 
 		We can use saved data from now and on.	
@@ -237,3 +243,5 @@ class RunFANN_Dual( RunFANN):
 				show()
 
 			self.kFold( xM, yV, fname_data_prefix = fname_data_prefix)
+
+			self.n_iter = n_iter
