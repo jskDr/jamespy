@@ -1059,6 +1059,8 @@ class Becca_half( object):
 			res = minimize(self.opt_func, self.init_cond, args=(X_train, y_train),
 					   method='SLSQP',
 					   constraints = self.cons, bounds = self.bounds)
+
+			print res
 			
 			error = np.abs(X_test.dot(res['x'])-y_test)
 			
@@ -1131,7 +1133,7 @@ class Becca( object):
 
 		self.bounds = []
 		for i in range(0,len(self.init_cond)):
-			self.bounds.append((0,100))
+			self.bounds.append((0,1))
 			
 		self.opt_func = opt_func
 		self.coefNormalized = coefNormalized
@@ -1187,36 +1189,58 @@ class Becca_half( object):
 
 		self.bounds = []
 		for i in range(0,len(self.init_cond)):
-			self.bounds.append((0,100))
+			self.bounds.append((0,1))
 			
 		self.opt_func = opt_func
 		self.coefNormalized = coefNormalized
+
+	def condition( self, on = False):
+		"""
+		Trun off conditions if on is False.
+		If on is True, trun on conditions.
+		"""
+
+		if on:
+			self.cons = self.cons_save
+		else:
+			self.cons_save = self.cons
+			self.cons = []
 			
-	def run(self, X, Gr):
+	def run(self, X, Gr, Navg = 10, disp = False):
 		#Optimize ensemble
 
-		kf = cross_validation.KFold(Gr.shape[0], n_folds= 5)
 		errors = []
 		coeffs = []
+		for it in range( Navg):
+			kf = cross_validation.KFold(Gr.shape[0], n_folds= 5, shuffle = True)
 
-		for train_index, test_index in kf:
-			X_train, X_test = X[train_index], X[test_index]
-			y_train, y_test = Gr[train_index], Gr[test_index]
+			for train_index, test_index in kf:
+				X_train, X_test = X[train_index], X[test_index]
+				y_train, y_test = Gr[train_index], Gr[test_index]
 
-			res = minimize(self.opt_func, self.init_cond, args=(X_train, y_train),
-					   method='SLSQP',
-					   constraints = self.cons, bounds = self.bounds)
-			
-			error = np.abs(X_test.dot(res['x'])-y_test)
-			
-			errors.append(error)
+				res = minimize(self.opt_func, self.init_cond, args=(X_train, y_train),
+						   method='SLSQP',
+						   constraints = self.cons, bounds = self.bounds)
 
-			coeff = res['x']
-			coeffs.append(coeff)
+				error = np.abs(X_test.dot(res['x'])-y_test)
 
-		print "Average Mean-AE:", np.mean(np.mean(errors,axis=1))
-		print "Average Std-AE:", np.mean(np.std(errors, axis = 1))
-		print "Average Median-AE:", np.mean(np.median(errors, axis = 1))
+				if disp:
+					print res
+					print error.shape 
+				
+				errors.append(error)
+
+				coeff = res['x']
+				coeffs.append(coeff)
+
+		if disp:
+			print np.shape(errors)
+
+		# map() is used since this is not symetric list
+		# the number of inner-elements of each elements are not the same. 
+		print "Average Mean-AE:", np.mean(map(np.mean, errors))
+		print "Average Std-AE:", np.mean(map(np.std, errors))
+		print "Average Median-AE:", np.mean(map(np.median, errors))
 		
 		return errors, coeffs
 
@@ -1321,3 +1345,19 @@ def get_xM4_yV( pdr, Em_type = "Em_in"):
 	yV = np.mat( pdr[Em_type]).T
 	
 	return xM, yV
+
+def get_xM2_yV( pdr, Em_type = "Em_in", mode = "B3LYP"):
+    xM4_str = pdr.xM4 
+    xM4_l = [ eval( x) for x in xM4_str]
+    xM4 = np.mat( xM4_l)
+    
+    if mode == "B3LYP":
+        xM2 = xM4[:,0:2]
+    elif mode == "TPSS0":
+        xM2 = xM4[:,2:4]
+    else:
+        raise ValueError("{} is not supported.".format( mode))
+
+    yV = np.mat( pdr[Em_type]).T
+
+    return xM2, yV

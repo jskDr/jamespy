@@ -2,7 +2,7 @@
 grid search codes for machine learning
 """
 
-from sklearn import cross_validation, cross_validation, grid_search, linear_model, svm
+from sklearn import cross_validation, cross_validation, grid_search, linear_model, svm, metrics
 import numpy as np
 import pandas as pd
 from operator import itemgetter
@@ -167,7 +167,7 @@ def _cv_LinearRegression_r0( xM, yV):
 
 	return cv_scores
 
-def cv_LinearRegression( xM, yV):
+def _cv_LinearRegression_r1( xM, yV):
 
 	print xM.shape, yV.shape
 
@@ -178,6 +178,70 @@ def cv_LinearRegression( xM, yV):
 	print 'R^2 mean, std -->', np.mean( cv_scores), np.std( cv_scores)
 
 	return cv_scores
+
+def _cv_LinearRegression_r2( xM, yV, scoring = 'r2'):
+
+	print xM.shape, yV.shape
+
+	clf = linear_model.LinearRegression()
+	kf5 = cross_validation.KFold( xM.shape[0], n_folds=5, shuffle=True)
+	cv_scores = cross_validation.cross_val_score( clf, xM, yV, scoring = scoring, cv = kf5, n_jobs = -1)
+
+	print '{}: mean, std -->'.format( scoring), np.mean( cv_scores), np.std( cv_scores)
+
+	return cv_scores
+
+def cv_LinearRegression( xM, yV, n_folds = 5, scoring = 'median_absolute_error', disp = False):
+    """
+    metrics.explained_variance_score(y_true, y_pred)	Explained variance regression score function
+    metrics.mean_absolute_error(y_true, y_pred)	Mean absolute error regression loss
+    metrics.mean_squared_error(y_true, y_pred[, ...])	Mean squared error regression loss
+    metrics.median_absolute_error(y_true, y_pred)	Median absolute error regression loss
+    metrics.r2_score(y_true, y_pred[, ...])	R^2 (coefficient of determination) regression score function.
+    """  
+    
+    if disp:
+        print xM.shape, yV.shape
+
+    clf = linear_model.LinearRegression()
+    kf5 = cross_validation.KFold( xM.shape[0], n_folds=n_folds, shuffle=True)
+    
+    cv_score_l = list()
+    for train, test in kf5:
+        # clf.fit( xM[train,:], yV[train,:])
+        # yV is vector but not a metrix here. Hence, it should be treated as a vector
+        clf.fit( xM[train,:], yV[train])
+        
+        yVp_test = clf.predict( xM[test,:])
+        if scoring == 'median_absolute_error':
+            cv_score_l.append( metrics.median_absolute_error(yV[test], yVp_test))
+        else:
+            raise ValueError( "{} scoring is not supported.".format( scoring))
+
+    if disp: # Now only this flag is on, the output will be displayed. 
+        print '{}: mean, std -->'.format( scoring), np.mean( cv_score_l), np.std( cv_score_l)
+
+    return cv_score_l
+
+def cv_LinearRegression_It( xM, yV, n_folds = 5, scoring = 'median_absolute_error', N_it = 10, disp = False, ldisp = False):
+    """
+    N_it times iteration is performed for cross_validation in order to make further average effect. 
+    The flag of 'disp' is truned off so each iteration will not shown.  
+    """
+    cv_score_le = list()
+    for ni in range( N_it):
+        cv_score_l = cv_LinearRegression( xM, yV, n_folds = n_folds, scoring = scoring, disp = disp)
+        cv_score_le.extend( cv_score_l)
+        
+    o_d = {'mean': np.mean( cv_score_le),
+           'std': np.std( cv_score_le),
+           'list': cv_score_le}
+    
+    if disp or ldisp:
+        print '{0}: mean(+/-std) --> {1}(+/-{2})'.format( scoring, o_d['mean'], o_d['std'])
+        
+    return o_d
+
 
 def cv_LinearRegression_A( xM, yV, s_l):
 	lr = linear_model.LinearRegression()
