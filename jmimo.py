@@ -67,13 +67,26 @@ def gen_Rx( Nr, Nx, SNR, H_a, x_a):
 
 	return y_a
 
+def normalize( W_a):
+	"Weight is normalized."
+
+	nW_a = np.linalg.norm( W_a, axis = 1)
+	for a0 in range( W_a.shape[0]):
+		W_a[a0,:] = np.divide( W_a[a0,:], nW_a[a0])
+
+	return W_a
+
 class MIMO(object):
 	"""
 	Modeling for a MIMO wireless communication system.
 	"""
-	def __init__(self, Nt = 2, Nr = 4, Nx = 10, SNRdB = 10):
-
+	def __init__(self, Nt = 2, Nr = 4, Nx = 10, SNRdB = 10, model = "Ridge", Npilot = 10):
+		"""
+		The parameter of 'model' determines the regression method.
+		"""
 		self.set_param( (Nt, Nr, Nx, SNRdB))
+		self.model = model
+		self.Npilot = Npilot
 
 	def set_param( self, param_NtNrNxSNRdB):
 
@@ -128,6 +141,7 @@ class MIMO(object):
 		"""
 		The reception process with ideal channel estimation 
 		is conducted.
+		each reception vector of W_a should be noramlized to one.
 		"""
 		self.W_a = np.linalg.pinv( self.H_a)
 		# The reception signal vector is transposed.
@@ -180,7 +194,7 @@ class MIMO(object):
 
 		self.gen_Decoding()
 
-	def gen_WR_pilot_ch(self, pilot_SNRdB, alpha = 0):
+	def _gen_WR_pilot_ch_r0(self, pilot_SNRdB, alpha = 0):
 
 		"""
 		The reception process with pilot channel estimation
@@ -206,6 +220,68 @@ class MIMO(object):
 
 		self.gen_Decoding()
 
+	def _gen_WR_pilot_ch_r1(self, pilot_SNRdB, alpha = 0, model = "Ridge"):
+
+		"""
+		The reception process with pilot channel estimation
+		is conducted.
+		"""
+		Npilot = 10
+		SNRpilot = db2var( pilot_SNRdB)
+
+		BPSK, s_a, x_flat_a, x_a = gen_BPSK( Npilot, self.Nt)
+		# H_a = gen_H( self.Nr, self.Nt)
+		# H_a = self.H_a
+		y_a = gen_Rx( self.Nr, Npilot, SNRpilot, self.H_a, x_a)
+
+		yT_a = y_a.T
+
+		# print( x_a.shape, yT_a.shape)
+
+		# Now you can use either Ridge or Lasso methods. 
+		#lm = linear_model.Ridge( alpha)		
+		lm = getattr( linear_model, model)(alpha)
+		lm.fit( yT_a, x_a)
+		self.W_a = lm.coef_
+
+		# print( "np.dot( W_a, H_a) =", np.dot( self.W_a, self.H_a))
+
+		self.gen_Decoding()		
+
+	def gen_WR_pilot_ch(self, pilot_SNRdB, alpha_l1r = 0, model = "Ridge"):
+
+		"""
+		The reception process with pilot channel estimation
+		is conducted.
+		"""
+		Npilot = self.Npilot
+
+		SNRpilot = db2var( pilot_SNRdB)
+
+		BPSK, s_a, x_flat_a, x_a = gen_BPSK( Npilot, self.Nt)
+		# H_a = gen_H( self.Nr, self.Nt)
+		# H_a = self.H_a
+		y_a = gen_Rx( self.Nr, Npilot, SNRpilot, self.H_a, x_a)
+
+		yT_a = y_a.T
+
+		# print( x_a.shape, yT_a.shape)
+
+		# Now you can use either Ridge or Lasso methods. 
+		#lm = linear_model.Ridge( alpha)
+		if model == "ElasticNet":
+			lm = linear_model.ElasticNet( alpha_l1r[0], alpha_l1r[1])
+		else:
+			lm = getattr( linear_model, model)(alpha_l1r)
+
+		lm.fit( yT_a, x_a)
+		self.W_a = lm.coef_
+
+		# print( "np.dot( W_a, H_a) =", np.dot( self.W_a, self.H_a))
+
+		self.gen_Decoding()		
+
+
 	def gen_WR( self, pilot_SNRdB = None):
 		if pilot_SNRdB:
 			gen_WR_pilot( pilot_SNRdB)
@@ -216,6 +292,8 @@ class MIMO(object):
 		"""
 		The reception process is conducted.
 		"""
+		self.W_a = normalize( self.W_a) # not important (useless at this moment)
+
 		self.rT_a = np.dot( self.W_a, self.y_a)
 
 		self.r_flat_a = self.rT_a.T.flatten()
@@ -334,6 +412,128 @@ class MIMO(object):
 
 		return self.BER
 
+	def run_pilot_ch_model( self, pilot_SNRdB = None, param_NtNrNxSNRdB = None, Nloop = 10, alpha = 0, disp = False):
+		"""
+		A system is run from the transmitter to the receiver.
+		self.model is used to determine the regression model such as Ridge and Lasso
+
+		"""
+		if param_NtNrNxSNRdB:
+			self.set_param( param_NtNrNxSNRdB)
+
+		self.gen_BPSK()
+
+		BER_l = list()
+		Nerr_total = 0
+		for nloop in range( Nloop):
+			self.gen_H()
+			self.gen_Rx()
+
+			if pilot_SNRdB:
+				# self.gen_WR_pilot( pilot_SNRdB)
+				# self.gen_WR_pilot_channel( pilot_SNRdB)
+				self.gen_WR_pilot_ch( pilot_SNRdB, alpha, self.model)
+			else: 
+				self.gen_WR_ideal()
+
+			BER_l.append( self.BER)
+			Nerr_total += self.Nerr
+
+		self.BER = np.mean( BER_l)
+
+		if disp:
+			Ntot = self.Nt * self.Nx * Nloop
+			print( "BER is {} with {}/{} errors at {} SNRdB ".format( self.BER, Nerr_total, Ntot, self.SNRdB))
+
+		return self.BER
+
+	def get_BER_pilot_ch_model_eqsnr( 
+		self,
+		SNRdB_l = [5,6,7], 
+		param_NtNrNx = (2,4,100), 
+		Nloop = 1000, 
+		pilot_ch = False, 
+		alpha = 0, 
+		model = "Ridge"):
+		"""
+		Ridge regression will be using to estimate channel.
+		If alpha is zero, linear regression will be applied.
+		If alpha is more than zero, Ridge regression will be applied.
+		The default value of alpha is zero. 
+		"""
+
+		Nt, Nr, Nx = param_NtNrNx	
+
+		BER_pilot = list()
+
+		for SNRdB in SNRdB_l:
+			# if pilot channel is used, SNRdB is given
+			# Otherwise, ideal channel estimation is assumed.
+			if pilot_ch:
+				pilot_SNRdB = SNRdB
+			else:
+				pilot_SNRdB = None
+
+			if alpha > 0:
+				"""
+				Ridge or Lasso is used.
+				"""
+				self.model = model
+				ber = self.run_pilot_ch_model( pilot_SNRdB = pilot_SNRdB, 
+					param_NtNrNxSNRdB =(Nt, Nr, Nx, SNRdB), Nloop = Nloop, alpha = alpha, disp = True)
+				BER_pilot.append( ber)
+			else:
+				"""
+				LinearRegression is used.
+				"""
+				ber = self.run_pilot_channel( pilot_SNRdB = pilot_SNRdB, 
+					param_NtNrNxSNRdB =(Nt, Nr, Nx, SNRdB), Nloop = Nloop, disp = True)
+				BER_pilot.append( ber)
+
+		# print( "List of average BERs =", BER_pilot)
+
+		return BER_pilot
+
+
+	def get_BER_pilot_ch_model( self,
+		SNRdB_l = [5,6,7], 
+		param_NtNrNx = (2,4,100), 
+		Nloop = 1000, 
+		pilot_SNRdB = None, 
+		alpha = 0, 
+		model = "Ridge"):
+		"""
+		Ridge regression will be using to estimate channel.
+		If alpha is zero, linear regression will be applied.
+		If alpha is more than zero, Ridge regression will be applied.
+		The default value of alpha is zero. 
+		This function becomes a member function of class MIMO.
+		"""
+
+		BER_pilot = list()
+		Nt, Nr, Nx = param_NtNrNx	
+		if alpha > 0:
+			"""
+			Ridge or Lasso is used.
+			"""
+			for SNRdB in SNRdB_l:
+				self.model = model
+				ber = self.run_pilot_ch_model( pilot_SNRdB = pilot_SNRdB, 
+					param_NtNrNxSNRdB =(Nt, Nr, Nx, SNRdB), Nloop = Nloop, alpha = alpha, disp = True)
+				BER_pilot.append( ber)
+		else:
+			"""
+			LinearRegression is used.
+			"""
+			for SNRdB in SNRdB_l:
+				ber = self.run_pilot_channel( pilot_SNRdB = pilot_SNRdB, 
+					param_NtNrNxSNRdB =(Nt, Nr, Nx, SNRdB), Nloop = Nloop, disp = True)
+				BER_pilot.append( ber)
+
+		# print( "List of average BERs =", BER_pilot)
+
+		return BER_pilot
+
 def get_BER( SNRdB_l = [5,6,7], param_NtNrNx = (2,4,100), Nloop = 1000, pilot_SNRdB = None):
 	BER_pilot = list()
 
@@ -368,6 +568,44 @@ def get_BER_pilot_ch( SNRdB_l = [5,6,7], param_NtNrNx = (2,4,100), Nloop = 1000,
 	else:
 		"""
 		Ridge is using.
+		"""
+		for SNRdB in SNRdB_l:
+			ber = MIMO().run_pilot_channel( pilot_SNRdB = pilot_SNRdB, 
+				param_NtNrNxSNRdB =(Nt, Nr, Nx, SNRdB), Nloop = Nloop, disp = True)
+			BER_pilot.append( ber)
+
+	# print( "List of average BERs =", BER_pilot)
+
+	return BER_pilot
+
+def get_BER_pilot_ch_model( 
+	SNRdB_l = [5,6,7], 
+	param_NtNrNx = (2,4,100), 
+	Nloop = 1000, 
+	pilot_SNRdB = None, 
+	alpha = 0, 
+	model = "Ridge"):
+	"""
+	Ridge regression will be using to estimate channel.
+	If alpha is zero, linear regression will be applied.
+	If alpha is more than zero, Ridge regression will be applied.
+	The default value of alpha is zero. 
+	"""
+
+	BER_pilot = list()
+
+	Nt, Nr, Nx = param_NtNrNx	
+	if alpha > 0:
+		"""
+		Ridge or Lasso is used.
+		"""
+		for SNRdB in SNRdB_l:
+			ber = MIMO( model = model).run_pilot_ch_model( pilot_SNRdB = pilot_SNRdB, 
+				param_NtNrNxSNRdB =(Nt, Nr, Nx, SNRdB), Nloop = Nloop, alpha = alpha, disp = True)
+			BER_pilot.append( ber)
+	else:
+		"""
+		LinearRegression is used.
 		"""
 		for SNRdB in SNRdB_l:
 			ber = MIMO().run_pilot_channel( pilot_SNRdB = pilot_SNRdB, 

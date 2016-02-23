@@ -1698,6 +1698,9 @@ def mlr_show4_pred( clf, RMv, yEv, disp = True, graph = True):
 	return (r_sqr, RMSE, MAE, DAE), yEv_calc
     
 def mlr4_coef_pred( RM, yE, disp = True, graph = True):
+	"""
+	Return: coef_, intercept_, yEp
+	"""
 	clf = linear_model.LinearRegression()
 	clf.fit( RM, yE)
 	_, yEp = mlr_show4_pred( clf, RM, yE, disp = disp, graph = graph)	

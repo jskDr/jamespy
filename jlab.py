@@ -7,6 +7,7 @@ Including most useful packages in my python library.
 import jutil as util
 import jchem as chem
 import jpyx as pyx
+import jgrid as grid
 
 import jpandas as jpd # this is nonlinear but is more natural 
 
