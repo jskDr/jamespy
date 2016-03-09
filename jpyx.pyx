@@ -7,7 +7,7 @@ cdef extern from "jc.h":
 	int prt()
 	int prt_str( char*)
 	unsigned int bin_sum( unsigned int, unsigned int)
-	float sumup( int)
+	int sumup( int)
 
 def prt_c():
 	prt()
@@ -15,7 +15,7 @@ def prt_c():
 def prt_str_c( str):
 	prt_str( str)
 
-def sumup_c( N):
+def sumup_c( int N):
 	return sumup( N)
 
 #=================================================

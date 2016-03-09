@@ -628,7 +628,7 @@ def gs_RidgeByLasso_kf_ext( xM, yV, alphas_log_l):
 
 	return score_l
 
-def gs_SVR( xM, yV, svr_params):
+def _gs_SVR_r0( xM, yV, svr_params):
 
 	print xM.shape, yV.shape
 
@@ -641,6 +641,18 @@ def gs_SVR( xM, yV, svr_params):
 
 	return gs
 
+def gs_SVR( xM, yV, svr_params, n_folds = 5):
+
+	print xM.shape, yV.shape
+
+	clf = svm.SVR()
+	#parmas = {'alpha': np.logspace(1, -1, 9)}
+	kf5 = cross_validation.KFold( xM.shape[0], n_folds=n_folds, shuffle=True)
+	gs = grid_search.GridSearchCV( clf, svr_params, scoring = 'r2', cv = kf5, n_jobs = -1)
+
+	gs.fit( xM, yV.A1)
+
+	return gs
 
 def gs_SVC( xM, yVc, params):
 	"""
@@ -953,6 +965,26 @@ def gs_Ridge_BIKE( A_list, yV, XX = None, alphas_log = (1, -1, 9), n_folds = 5, 
 	gs.fit( AX_idx, yV)
 
 	return gs
+
+def gs_BIKE_Ridge( A_list, yV, alphas_log = (1, -1, 9), X_concat = None, n_folds = 5, n_jobs = -1):
+	"""
+	As is a list of A matrices where A is similarity matrix. 
+	X is a concatened linear descriptors. 
+	If no X is used, X can be empty
+	"""
+
+	clf = binary_model.BIKE_Ridge( A_list, X_concat)
+	parmas = {'alpha': np.logspace( *alphas_log)}
+	ln = A_list[0].shape[0] # ls is the number of molecules.
+
+	kf_n = cross_validation.KFold( ln, n_folds=n_folds, shuffle=True)
+	gs = grid_search.GridSearchCV( clf, parmas, scoring = 'r2', cv = kf_n, n_jobs = n_jobs)
+	
+	AX_idx = np.array([range( ln)]).T
+	gs.fit( AX_idx, yV)
+
+	return gs
+
 
 def cv( method, xM, yV, alpha, n_folds = 5, n_jobs = -1, grid_std = None):
 	"""

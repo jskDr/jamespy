@@ -33,14 +33,14 @@ unsigned int bin_sum( unsigned int a, unsigned int b)
 	return c;
 }
 
-float sumup( int N) {
-    float s = 0;
+int sumup( int N) {
+    int s = 0;
     int ii, jj, kk;
 
     for( ii = 0; ii < N; ii++) {
         for( jj = 0; jj < N; jj++) {
             for( kk = 0; kk < N; kk++) {
-                s += ii * jj * kk + 0.01;
+                s += ii * jj * kk;
             }
         }
     }

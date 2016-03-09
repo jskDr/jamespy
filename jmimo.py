@@ -1,12 +1,34 @@
+"""
+Author
+--------
+Best regards, 
+Sungjin (James) Kim, PhD
+Postdoc, CCB in Harvard
+sungjinkim@fas.harvard.edu
+
+[Web] http://aspuru.chem.harvard.edu/james-sungjin-kim/ 
+[Linkedin] https://www.linkedin.com/in/jamessungjinkim 
+[Facebook] https://www.facebook.com/jamessungjin.kim 
+[alternative email] jamessungjin.kim@gmail.com 
+
+Licence
+---------
+MIT License
+
+"""
 from __future__ import print_function
 # I started to use __future__ so as to be compatible with Python3
 
 import numpy as np
 from sklearn import linear_model
+from sklearn import cross_validation
+from sklearn import metrics
+import pandas as pd
 
 # To improve the speed, I using pyx. 
 import jpyx
 import jutil
+from jsklearn import codes
 
 def mld( r_l, mod_l = [-0.70710678, 0.70710678]):
 	"""
@@ -80,13 +102,17 @@ class MIMO(object):
 	"""
 	Modeling for a MIMO wireless communication system.
 	"""
-	def __init__(self, Nt = 2, Nr = 4, Nx = 10, SNRdB = 10, model = "Ridge", Npilot = 10):
+	def __init__(self, Nt = 2, Nr = 4, Nx = 10, SNRdB = 10, model = "Ridge", Npilot = 10, Nloop = 10):
 		"""
 		The parameter of 'model' determines the regression method.
 		"""
 		self.set_param( (Nt, Nr, Nx, SNRdB))
 		self.model = model
 		self.Npilot = Npilot
+		self.Nloop = Nloop
+
+		# The function of test_ridge_all() uses 3 cases for testing. 
+		# self.N_test_ridge_all = 3
 
 	def set_param( self, param_NtNrNxSNRdB):
 
@@ -168,7 +194,7 @@ class MIMO(object):
 		The reception process with pilot channel estimation
 		is conducted.
 		"""
-		Npilot = 10
+		Npilot = self.Npilot
 		SNRpilot = db2var( pilot_SNRdB)
 
 		BPSK, s_a, x_flat_a, x_a = gen_BPSK( Npilot, self.Nt)
@@ -193,6 +219,168 @@ class MIMO(object):
 		# print( "np.dot( W_a, H_a) =", np.dot( self.W_a, self.H_a))
 
 		self.gen_Decoding()
+
+	def gs_pilot_reg_only(self, alpha_l):
+		"""
+		Grid search is applied for alpha_l.
+		Later, the best alpha will be selected and decode data using it.
+		"""
+
+		pdo = pd.DataFrame()
+		for alpha in alpha_l:
+			pdi = self.cv_pilot_reg_only( alpha)
+			pdo = pdo.append( pdi, ignore_index = True)
+
+		return pdo
+
+	def gs_pilot_reg_full(self, alpha_l):
+		"""
+		Full means data and pilot are both generated and processed including data decoding
+		"""
+		self.gen_BPSK()
+		self.gen_H()
+		self.gen_Rx()
+		self.rx_pilot()
+
+		return self.gs_pilot_reg_only( alpha_l)
+
+	def gs_pilot_reg_best(self, alpha_l):
+		"""
+		Find the best alpha using Ridge regression.
+		Return
+		--------
+		The best alpha is returned.
+		"""
+		pdi = self.gs_pilot_reg_only( alpha_l)
+		# print( 'pdi["E[scores]"]', pdi["E[scores]"])
+		i_max = np.argmin( pdi["E[scores]"])
+		alpha_best = pdi["alpha"][i_max]
+
+		return alpha_best
+
+	def gs_pilot_reg_best_full(self, alpha_l):
+		"""
+		Full means data and pilot are both generated and processed including data decoding
+		"""
+		self.gen_BPSK()
+		self.gen_H()
+		self.gen_Rx()
+		self.rx_pilot()
+
+		return self.gs_pilot_reg_best( alpha_l)
+
+	def rx_pilot(self):
+
+		Npilot = self.Npilot
+		SNRpilot = self.SNR
+
+		BPSK, s_a, x_flat_a, x_a = gen_BPSK( Npilot, self.Nt)
+		# H_a = gen_H( self.Nr, self.Nt)
+		# H_a = self.H_a
+		y_a = gen_Rx( self.Nr, Npilot, SNRpilot, self.H_a, x_a)
+
+		yT_a = y_a.T
+
+		self.rx_p = dict()
+		self.rx_p["yT_a"] = yT_a
+		self.rx_p["x_a"] = x_a
+
+	def cv_pilot_only(self):
+
+		"""
+		Cross-validatin scores are evaluated using LOO. 
+		SNRpilot is equal to SNR, which is SNRdata.		
+		"""
+		yT_a = self.rx_p["yT_a"]
+		x_a = self.rx_p["x_a"]
+
+		lm = linear_model.LinearRegression()
+		scores = codes.cross_val_score_loo( lm, yT_a, x_a)
+
+		# Output is stored with enviromental variables.
+		pdi = pd.DataFrame()
+		pdi["model"] = ["LinearRegression"]
+		pdi["alpha"] = [0]
+		pdi["metric"] = ["mean_squared_error"]
+		pdi["E[scores]"] = [np.mean(scores)]
+		pdi["std[scores]"] = [np.std(scores)]
+		pdi["scores"] = [scores]
+
+		return pdi
+
+	def cv_pilot( self):
+		self.rx_pilot()
+		return self.cv_pilot_only()
+
+	def _cv_pilot_reg_only_r0(self, alpha = 0):
+		model = self.model
+		yT_a = self.rx_p["yT_a"]
+		x_a = self.rx_p["x_a"]
+
+		# kf = KFold() 
+		# loo = cross_validation.LeaveOneOut( x_a.shape[0])
+		if alpha == 0:
+			lm = linear_model.LinearRegression()
+		else:
+			lm = getattr( linear_model, model)(alpha)
+		scores = codes.cross_val_score_loo( lm, yT_a, x_a)
+
+		return scores
+
+	def cv_pilot_reg_only(self, alpha = 0):
+		model = self.model
+		yT_a = self.rx_p["yT_a"]
+		x_a = self.rx_p["x_a"]
+
+		# kf = KFold() 
+		# loo = cross_validation.LeaveOneOut( x_a.shape[0])
+		if alpha == 0:
+			lm = linear_model.LinearRegression()
+		else:
+			lm = getattr( linear_model, model)(alpha)
+		scores = codes.cross_val_score_loo( lm, yT_a, x_a)
+
+		# Output is stored with enviromental variables.
+		pdi = pd.DataFrame()
+		pdi["model"] = [model]
+		pdi["alpha"] = [alpha]
+		pdi["metric"] = ["mean_squared_error"]
+		pdi["E[scores]"] = [np.mean(scores)]
+		pdi["std[scores]"] = [np.std(scores)]
+		pdi["scores"] = [scores]
+
+		return pdi
+
+	def cv_pilot_reg( self, alpha = 0):
+		self.rx_pilot()
+		return self.cv_pilot_reg_only( alpha)
+
+	def _cv_pilot_reg_r0(self, alpha = 0):
+
+		"""
+		Cross-validatin scores are evaluated using LOO. 
+		SNRpilot is equal to SNR, which is SNRdata.		
+		"""
+		Npilot = self.Npilot
+		SNRpilot = self.SNR
+		model = self.model
+
+		BPSK, s_a, x_flat_a, x_a = gen_BPSK( Npilot, self.Nt)
+		# H_a = gen_H( self.Nr, self.Nt)
+		# H_a = self.H_a
+		y_a = gen_Rx( self.Nr, Npilot, SNRpilot, self.H_a, x_a)
+
+		yT_a = y_a.T
+
+		# kf = KFold() 
+		# loo = cross_validation.LeaveOneOut( x_a.shape[0])
+		if alpha == 0:
+			lm = linear_model.LinearRegression()
+		else:
+			lm = getattr( linear_model, model)(alpha)
+		scores = codes.cross_val_score_loo( lm, yT_a, x_a)
+
+		return scores
 
 	def _gen_WR_pilot_ch_r0(self, pilot_SNRdB, alpha = 0):
 
@@ -281,6 +469,36 @@ class MIMO(object):
 
 		self.gen_Decoding()		
 
+	def gen_WR_pilot_only(self, alpha_l1r = 0):
+		"""
+		yT_a and x_a was prepared already. 
+		Now, W_a is calculated using alpha and then, 
+		decode data. 
+		For linear regression, alpha_l1r should not be specified except 0.
+		"""
+
+		yT_a = self.rx_p["yT_a"]
+		x_a = self.rx_p["x_a"]
+
+		# for alpha == 0, model is changed to linear regression.  
+		if alpha_l1r == 0:
+			model = "LinearRegression"
+		else:
+			model = self.model
+
+		if model == "LinearRegression":
+			lm = linear_model.LinearRegression()
+		elif model == "ElasticNet":
+			lm = linear_model.ElasticNet( alpha_l1r[0], alpha_l1r[1])
+		else: # This is either Ridge or Lasso
+			lm = getattr( linear_model, model)(alpha_l1r)
+
+		lm.fit( yT_a, x_a)
+		self.W_a = lm.coef_
+
+		# print( "np.dot( W_a, H_a) =", np.dot( self.W_a, self.H_a))
+
+		self.gen_Decoding()
 
 	def gen_WR( self, pilot_SNRdB = None):
 		if pilot_SNRdB:
@@ -411,6 +629,97 @@ class MIMO(object):
 			print( "BER is {} with {}/{} errors at {} SNRdB ".format( self.BER, Nerr_total, Ntot, self.SNRdB))
 
 		return self.BER
+
+	def test_ridge_iter( self, alpha_l):
+
+		# Ideal ZF(H)
+		ID = 0
+		self.method = "Ideal ZF(H)"
+		self.model = "ZF"
+		self.alpha = 0
+		self.gen_WR_ideal()
+		yield ID
+
+		# Multiple Ridge regressions with alpha_l
+		for alpha in alpha_l:
+			ID += 1
+			self.method = "Ridge each"
+			self.model = "Ridge"
+			self.alpha = alpha
+			self.gen_WR_pilot_only( self.alpha)
+			yield ID
+
+		# Ridge regression with the best alpha among alpha_l
+		ID += 1
+		self.method = "Ridge best"
+		self.model = "Ridge"
+		self.alpha = self.gs_pilot_reg_best( alpha_l)
+		self.gen_WR_pilot_only( self.alpha)
+		yield ID
+
+	def test_ridge_all( self, pdi_d_prev, alpha_l):
+		"""
+		1. LinearRegression
+		2. multiple Ridge regression with each alpha in alpha_l
+		3. Ridge regression with the best alpha among alpha_l
+		"""
+
+		# pdi_d is generated only once. 
+		if pdi_d_prev is None:
+			pdi_d = dict()
+		else:
+			pdi_d = pdi_d_prev
+
+		for ID in self.test_ridge_iter(alpha_l):
+
+			"""
+			If pdi_l is not defined yet, 
+			it will be generated first and initial values are stored.
+			Otherwise, new data are added for the corresponding space.
+			"""
+			if pdi_d_prev is None:
+				pdi = pd.DataFrame()
+				pdi["Nerr_total"] = [0]
+				pdi["BER_l"] = [[self.BER]]
+			else: 
+				pdi = pdi_d[ ID]
+				pdi["Nerr_total"] = [ pdi["Nerr_total"][0] + self.Nerr]
+				pdi["BER_l"] = [pdi["BER_l"][0] + [self.BER]]
+
+			pdi["method"] = [self.method]
+			pdi["model"] = [self.model]
+			pdi["alpha"] = [self.alpha]
+			# print( 'pdi["BER_l"]', pdi["BER_l"])
+			pdi["BER"] = [np.mean( pdi["BER_l"][0])]
+
+			pdi_d[ ID] = pdi
+
+		return pdi_d
+
+	def run_gs_pilot_Ridge( self, alpha_l):
+		"""
+		Search the best alpha using Ridge.
+		I focus on Ridge for simplicity at this moment. 
+		Other regularization modes will be used later on.
+		"""
+
+		Nloop = self.Nloop
+
+		pdi_d = None
+		for nloop in range( Nloop):
+			self.gen_BPSK()
+			self.gen_H()
+			self.gen_Rx()
+			# For fair comparision, pilot is also generated commonly for all methods.
+			self.rx_pilot() 
+
+			pdi_d = self.test_ridge_all( pdi_d, alpha_l)	
+
+		pdo = pd.DataFrame()
+		for pdi in pdi_d.values():
+			pdo = pdo.append( pdi, ignore_index = True)
+
+		return pdo
 
 	def run_pilot_ch_model( self, pilot_SNRdB = None, param_NtNrNxSNRdB = None, Nloop = 10, alpha = 0, disp = False):
 		"""

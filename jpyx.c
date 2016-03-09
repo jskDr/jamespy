@@ -979,9 +979,9 @@ static CYTHON_INLINE int __Pyx_PyInt_As_int(PyObject *);
 
 static CYTHON_INLINE unsigned int __Pyx_PyInt_As_unsigned_int(PyObject *);
 
-static CYTHON_INLINE PyObject* __Pyx_PyInt_From_long(long value);
-
 static CYTHON_INLINE PyObject* __Pyx_PyInt_From_int(int value);
+
+static CYTHON_INLINE PyObject* __Pyx_PyInt_From_long(long value);
 
 static CYTHON_INLINE PyObject* __Pyx_PyInt_From_npy_longlong(npy_longlong value);
 
@@ -1143,7 +1143,7 @@ static PyObject *__pyx_builtin_ValueError;
 static PyObject *__pyx_builtin_RuntimeError;
 static PyObject *__pyx_pf_7jamespy_4jpyx_prt_c(CYTHON_UNUSED PyObject *__pyx_self); /* proto */
 static PyObject *__pyx_pf_7jamespy_4jpyx_2prt_str_c(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_str); /* proto */
-static PyObject *__pyx_pf_7jamespy_4jpyx_4sumup_c(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_N); /* proto */
+static PyObject *__pyx_pf_7jamespy_4jpyx_4sumup_c(CYTHON_UNUSED PyObject *__pyx_self, int __pyx_v_N); /* proto */
 static PyObject *__pyx_pf_7jamespy_4jpyx_6type_checkable(CYTHON_UNUSED PyObject *__pyx_self, int __pyx_v_x); /* proto */
 static PyObject *__pyx_pf_7jamespy_4jpyx_8calc_corr(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_smiles_l, PyObject *__pyx_v_radius, PyObject *__pyx_v_nBits); /* proto */
 static PyObject *__pyx_pf_7jamespy_4jpyx_10calc_bin_sim_M(CYTHON_UNUSED PyObject *__pyx_self, PyArrayObject *__pyx_v_xM, PyObject *__pyx_v_gamma); /* proto */
@@ -1468,7 +1468,7 @@ static PyObject *__pyx_codeobj__61;
 static PyObject *__pyx_codeobj__63;
 
 /* "jamespy/jpyx.pyx":12
- * 	float sumup( int)
+ * 	int sumup( int)
  * 
  * def prt_c():             # <<<<<<<<<<<<<<
  * 	prt()
@@ -1504,7 +1504,7 @@ static PyObject *__pyx_pf_7jamespy_4jpyx_prt_c(CYTHON_UNUSED PyObject *__pyx_sel
   prt();
 
   /* "jamespy/jpyx.pyx":12
- * 	float sumup( int)
+ * 	int sumup( int)
  * 
  * def prt_c():             # <<<<<<<<<<<<<<
  * 	prt()
@@ -1554,7 +1554,7 @@ static PyObject *__pyx_pf_7jamespy_4jpyx_2prt_str_c(CYTHON_UNUSED PyObject *__py
  * def prt_str_c( str):
  * 	prt_str( str)             # <<<<<<<<<<<<<<
  * 
- * def sumup_c( N):
+ * def sumup_c( int N):
  */
   __pyx_t_1 = __Pyx_PyObject_AsString(__pyx_v_str); if (unlikely((!__pyx_t_1) && PyErr_Occurred())) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 16; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
   prt_str(__pyx_t_1);
@@ -1582,30 +1582,42 @@ static PyObject *__pyx_pf_7jamespy_4jpyx_2prt_str_c(CYTHON_UNUSED PyObject *__py
 /* "jamespy/jpyx.pyx":18
  * 	prt_str( str)
  * 
- * def sumup_c( N):             # <<<<<<<<<<<<<<
+ * def sumup_c( int N):             # <<<<<<<<<<<<<<
  * 	return sumup( N)
  * 
  */
 
 /* Python wrapper */
-static PyObject *__pyx_pw_7jamespy_4jpyx_5sumup_c(PyObject *__pyx_self, PyObject *__pyx_v_N); /*proto*/
+static PyObject *__pyx_pw_7jamespy_4jpyx_5sumup_c(PyObject *__pyx_self, PyObject *__pyx_arg_N); /*proto*/
 static PyMethodDef __pyx_mdef_7jamespy_4jpyx_5sumup_c = {"sumup_c", (PyCFunction)__pyx_pw_7jamespy_4jpyx_5sumup_c, METH_O, 0};
-static PyObject *__pyx_pw_7jamespy_4jpyx_5sumup_c(PyObject *__pyx_self, PyObject *__pyx_v_N) {
+static PyObject *__pyx_pw_7jamespy_4jpyx_5sumup_c(PyObject *__pyx_self, PyObject *__pyx_arg_N) {
+  int __pyx_v_N;
+  int __pyx_lineno = 0;
+  const char *__pyx_filename = NULL;
+  int __pyx_clineno = 0;
   PyObject *__pyx_r = 0;
   __Pyx_RefNannyDeclarations
   __Pyx_RefNannySetupContext("sumup_c (wrapper)", 0);
-  __pyx_r = __pyx_pf_7jamespy_4jpyx_4sumup_c(__pyx_self, ((PyObject *)__pyx_v_N));
+  assert(__pyx_arg_N); {
+    __pyx_v_N = __Pyx_PyInt_As_int(__pyx_arg_N); if (unlikely((__pyx_v_N == (int)-1) && PyErr_Occurred())) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 18; __pyx_clineno = __LINE__; goto __pyx_L3_error;}
+  }
+  goto __pyx_L4_argument_unpacking_done;
+  __pyx_L3_error:;
+  __Pyx_AddTraceback("jamespy.jpyx.sumup_c", __pyx_clineno, __pyx_lineno, __pyx_filename);
+  __Pyx_RefNannyFinishContext();
+  return NULL;
+  __pyx_L4_argument_unpacking_done:;
+  __pyx_r = __pyx_pf_7jamespy_4jpyx_4sumup_c(__pyx_self, ((int)__pyx_v_N));
 
   /* function exit code */
   __Pyx_RefNannyFinishContext();
   return __pyx_r;
 }
 
-static PyObject *__pyx_pf_7jamespy_4jpyx_4sumup_c(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_N) {
+static PyObject *__pyx_pf_7jamespy_4jpyx_4sumup_c(CYTHON_UNUSED PyObject *__pyx_self, int __pyx_v_N) {
   PyObject *__pyx_r = NULL;
   __Pyx_RefNannyDeclarations
-  int __pyx_t_1;
-  PyObject *__pyx_t_2 = NULL;
+  PyObject *__pyx_t_1 = NULL;
   int __pyx_lineno = 0;
   const char *__pyx_filename = NULL;
   int __pyx_clineno = 0;
@@ -1613,30 +1625,29 @@ static PyObject *__pyx_pf_7jamespy_4jpyx_4sumup_c(CYTHON_UNUSED PyObject *__pyx_
 
   /* "jamespy/jpyx.pyx":19
  * 
- * def sumup_c( N):
+ * def sumup_c( int N):
  * 	return sumup( N)             # <<<<<<<<<<<<<<
  * 
  * #=================================================
  */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __Pyx_PyInt_As_int(__pyx_v_N); if (unlikely((__pyx_t_1 == (int)-1) && PyErr_Occurred())) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 19; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
-  __pyx_t_2 = PyFloat_FromDouble(sumup(__pyx_t_1)); if (unlikely(!__pyx_t_2)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 19; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
-  __Pyx_GOTREF(__pyx_t_2);
-  __pyx_r = __pyx_t_2;
-  __pyx_t_2 = 0;
+  __pyx_t_1 = __Pyx_PyInt_From_int(sumup(__pyx_v_N)); if (unlikely(!__pyx_t_1)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 19; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+  __Pyx_GOTREF(__pyx_t_1);
+  __pyx_r = __pyx_t_1;
+  __pyx_t_1 = 0;
   goto __pyx_L0;
 
   /* "jamespy/jpyx.pyx":18
  * 	prt_str( str)
  * 
- * def sumup_c( N):             # <<<<<<<<<<<<<<
+ * def sumup_c( int N):             # <<<<<<<<<<<<<<
  * 	return sumup( N)
  * 
  */
 
   /* function exit code */
   __pyx_L1_error:;
-  __Pyx_XDECREF(__pyx_t_2);
+  __Pyx_XDECREF(__pyx_t_1);
   __Pyx_AddTraceback("jamespy.jpyx.sumup_c", __pyx_clineno, __pyx_lineno, __pyx_filename);
   __pyx_r = NULL;
   __pyx_L0:;
@@ -14077,7 +14088,7 @@ static int __Pyx_InitCachedConstants(void) {
   __Pyx_GIVEREF(__pyx_tuple__10);
 
   /* "jamespy/jpyx.pyx":12
- * 	float sumup( int)
+ * 	int sumup( int)
  * 
  * def prt_c():             # <<<<<<<<<<<<<<
  * 	prt()
@@ -14100,14 +14111,14 @@ static int __Pyx_InitCachedConstants(void) {
   /* "jamespy/jpyx.pyx":18
  * 	prt_str( str)
  * 
- * def sumup_c( N):             # <<<<<<<<<<<<<<
+ * def sumup_c( int N):             # <<<<<<<<<<<<<<
  * 	return sumup( N)
  * 
  */
-  __pyx_tuple__14 = PyTuple_Pack(1, __pyx_n_s_N); if (unlikely(!__pyx_tuple__14)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 18; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+  __pyx_tuple__14 = PyTuple_Pack(2, __pyx_n_s_N, __pyx_n_s_N); if (unlikely(!__pyx_tuple__14)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 18; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
   __Pyx_GOTREF(__pyx_tuple__14);
   __Pyx_GIVEREF(__pyx_tuple__14);
-  __pyx_codeobj__15 = (PyObject*)__Pyx_PyCode_New(1, 0, 1, 0, 0, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__14, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_home_jamessungjinkim_Dropbox_As, __pyx_n_s_sumup_c, 18, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__15)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 18; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+  __pyx_codeobj__15 = (PyObject*)__Pyx_PyCode_New(1, 0, 2, 0, 0, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__14, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_home_jamessungjinkim_Dropbox_As, __pyx_n_s_sumup_c, 18, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__15)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 18; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
 
   /* "jamespy/jpyx.pyx":23
  * #=================================================
@@ -14538,7 +14549,7 @@ PyMODINIT_FUNC PyInit_jpyx(void)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
   /* "jamespy/jpyx.pyx":12
- * 	float sumup( int)
+ * 	int sumup( int)
  * 
  * def prt_c():             # <<<<<<<<<<<<<<
  * 	prt()
@@ -14564,7 +14575,7 @@ PyMODINIT_FUNC PyInit_jpyx(void)
   /* "jamespy/jpyx.pyx":18
  * 	prt_str( str)
  * 
- * def sumup_c( N):             # <<<<<<<<<<<<<<
+ * def sumup_c( int N):             # <<<<<<<<<<<<<<
  * 	return sumup( N)
  * 
  */
@@ -16459,32 +16470,6 @@ raise_neg_overflow:
     return (unsigned int) -1;
 }
 
-static CYTHON_INLINE PyObject* __Pyx_PyInt_From_long(long value) {
-    const long neg_one = (long) -1, const_zero = 0;
-    const int is_unsigned = neg_one > const_zero;
-    if (is_unsigned) {
-        if (sizeof(long) < sizeof(long)) {
-            return PyInt_FromLong((long) value);
-        } else if (sizeof(long) <= sizeof(unsigned long)) {
-            return PyLong_FromUnsignedLong((unsigned long) value);
-        } else if (sizeof(long) <= sizeof(unsigned PY_LONG_LONG)) {
-            return PyLong_FromUnsignedLongLong((unsigned PY_LONG_LONG) value);
-        }
-    } else {
-        if (sizeof(long) <= sizeof(long)) {
-            return PyInt_FromLong((long) value);
-        } else if (sizeof(long) <= sizeof(PY_LONG_LONG)) {
-            return PyLong_FromLongLong((PY_LONG_LONG) value);
-        }
-    }
-    {
-        int one = 1; int little = (int)*(unsigned char *)&one;
-        unsigned char *bytes = (unsigned char *)&value;
-        return _PyLong_FromByteArray(bytes, sizeof(long),
-                                     little, !is_unsigned);
-    }
-}
-
 static CYTHON_INLINE PyObject* __Pyx_PyInt_From_int(int value) {
     const int neg_one = (int) -1, const_zero = 0;
     const int is_unsigned = neg_one > const_zero;
@@ -16507,6 +16492,32 @@ static CYTHON_INLINE PyObject* __Pyx_PyInt_From_int(int value) {
         int one = 1; int little = (int)*(unsigned char *)&one;
         unsigned char *bytes = (unsigned char *)&value;
         return _PyLong_FromByteArray(bytes, sizeof(int),
+                                     little, !is_unsigned);
+    }
+}
+
+static CYTHON_INLINE PyObject* __Pyx_PyInt_From_long(long value) {
+    const long neg_one = (long) -1, const_zero = 0;
+    const int is_unsigned = neg_one > const_zero;
+    if (is_unsigned) {
+        if (sizeof(long) < sizeof(long)) {
+            return PyInt_FromLong((long) value);
+        } else if (sizeof(long) <= sizeof(unsigned long)) {
+            return PyLong_FromUnsignedLong((unsigned long) value);
+        } else if (sizeof(long) <= sizeof(unsigned PY_LONG_LONG)) {
+            return PyLong_FromUnsignedLongLong((unsigned PY_LONG_LONG) value);
+        }
+    } else {
+        if (sizeof(long) <= sizeof(long)) {
+            return PyInt_FromLong((long) value);
+        } else if (sizeof(long) <= sizeof(PY_LONG_LONG)) {
+            return PyLong_FromLongLong((PY_LONG_LONG) value);
+        }
+    }
+    {
+        int one = 1; int little = (int)*(unsigned char *)&one;
+        unsigned char *bytes = (unsigned char *)&value;
+        return _PyLong_FromByteArray(bytes, sizeof(long),
                                      little, !is_unsigned);
     }
 }
