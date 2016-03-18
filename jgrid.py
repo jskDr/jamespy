@@ -259,6 +259,44 @@ def cv_LinearRegression_ci( xM, yV, n_folds = 5, scoring = 'median_absolute_erro
 
 	return cv_score_l, ci_l
 
+def cv_LinearRegression_ci_pred( xM, yV, n_folds = 5, scoring = 'median_absolute_error', disp = False):
+	"""
+	metrics.explained_variance_score(y_true, y_pred)	Explained variance regression score function
+	metrics.mean_absolute_error(y_true, y_pred)	Mean absolute error regression loss
+	metrics.mean_squared_error(y_true, y_pred[, ...])	Mean squared error regression loss
+	metrics.median_absolute_error(y_true, y_pred)	Median absolute error regression loss
+	metrics.r2_score(y_true, y_pred[, ...])	R^2 (coefficient of determination) regression score function.
+	"""  
+	
+	if disp:
+		print xM.shape, yV.shape
+
+	clf = linear_model.LinearRegression()
+	kf5 = cross_validation.KFold( xM.shape[0], n_folds=n_folds, shuffle=True)
+	
+	cv_score_l = list()
+	ci_l = list()
+	yVp = yV.copy() 
+	for train, test in kf5:
+		# clf.fit( xM[train,:], yV[train,:])
+		# yV is vector but not a metrix here. Hence, it should be treated as a vector
+		clf.fit( xM[train,:], yV[train])
+		
+		yVp_test = clf.predict( xM[test,:])
+		yVp[test] = yVp_test
+		
+		# Additionally, coef_ and intercept_ are stored. 
+		ci_l.append( (clf.coef_, clf.intercept_))
+		if scoring == 'median_absolute_error':
+			cv_score_l.append( metrics.median_absolute_error(yV[test], yVp_test))
+		else:
+			raise ValueError( "{} scoring is not supported.".format( scoring))
+
+	if disp: # Now only this flag is on, the output will be displayed. 
+		print '{}: mean, std -->'.format( scoring), np.mean( cv_score_l), np.std( cv_score_l)
+
+	return cv_score_l, ci_l, yVp.A1.tolist()
+
 def cv_LinearRegression_It( xM, yV, n_folds = 5, scoring = 'median_absolute_error', N_it = 10, disp = False, ldisp = False):
 	"""
 	N_it times iteration is performed for cross_validation in order to make further average effect. 
@@ -299,6 +337,32 @@ def cv_LinearRegression_ci_It( xM, yV, n_folds = 5, scoring = 'median_absolute_e
 		print '{0}: mean(+/-std) --> {1}(+/-{2})'.format( scoring, o_d['mean'], o_d['std'])
 		
 	return o_d
+
+def cv_LinearRegression_ci_pred_It( xM, yV, n_folds = 5, scoring = 'median_absolute_error', N_it = 10, disp = False, ldisp = False):
+	"""
+	N_it times iteration is performed for cross_validation in order to make further average effect. 
+	The flag of 'disp' is truned off so each iteration will not shown.  
+	"""
+	cv_score_le = list()
+	ci_le = list()
+	yVp_ltype_l = list() # yVp_ltype is list type of yVp not matrix type
+	for ni in range( N_it):
+		cv_score_l, ci_l, yVp_ltype = cv_LinearRegression_ci_pred( xM, yV, n_folds = n_folds, scoring = scoring, disp = disp)
+		cv_score_le.extend( cv_score_l)
+		ci_le.extend( ci_l)
+		yVp_ltype_l.append( yVp_ltype)
+		
+	o_d = {'mean': np.mean( cv_score_le),
+		   'std': np.std( cv_score_le),
+		   'list': cv_score_le,
+		   'ci': ci_le,
+		   'yVp': yVp_ltype_l}
+	
+	if disp or ldisp:
+		print '{0}: mean(+/-std) --> {1}(+/-{2})'.format( scoring, o_d['mean'], o_d['std'])
+		
+	return o_d
+
 
 def mdae_no_regression( xM, yV, disp = False, ldisp = False):
 	"""
@@ -1015,6 +1079,20 @@ def cv_Ridge_BIKE( A_list, yV, XX = None, alpha = 0.5, n_folds = 5, n_jobs = -1,
 	jutil.cv_show( yV, yV_pred, grid_std = grid_std)
 
 	return yV_pred
+
+def cv_BIKE_Ridge( A_list, yV, alpha = 0.5, XX = None, n_folds = 5, n_jobs = -1, grid_std = None):
+
+	clf = binary_model.BIKE_Ridge( A_list, XX, alpha = alpha)
+	ln = A_list[0].shape[0] # ls is the number of molecules.
+	kf_n = cross_validation.KFold( ln, n_folds=n_folds, shuffle=True)
+
+	AX_idx = np.array([range( ln)]).T
+	yV_pred = cross_validation.cross_val_predict( clf, AX_idx, yV, cv = kf_n, n_jobs = n_jobs)
+
+	print 'The prediction output using cross-validation is given by:'
+	jutil.cv_show( yV, yV_pred, grid_std = grid_std)
+
+	return yV_pred	
 
 
 def topscores( gs):

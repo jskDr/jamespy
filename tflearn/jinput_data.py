@@ -81,7 +81,8 @@ def read_data_sets_mol( fname, validation_rate = 0, test_rate = 0, disp = False)
 	xM_lasa = jpd.pd_get_xM_lasa( pdr)
 	xM = np.concatenate( [xM_fp, xM_key, xM_molw, xM_lasa], axis = 1)
 
-	yV = jpd.pd_get_yV( pdr, y_id = 'exp')
+	yV = jpd.pd_get_yV( pdr, y_id = 'exp').A1
+	yV = [1 if y > 0 else 0 for y in yV] # classification is performed
 
 	X, Y = map( np.array, [xM, yV])
 	assert X.shape[0] == Y.shape[0]
@@ -98,6 +99,7 @@ def read_data_sets_mol( fname, validation_rate = 0, test_rate = 0, disp = False)
 	# all data is allocated to train dataset. 
 	data_sets.train = DataSet_CSV( X, Y, disp = disp)
 
+	data_sets.IMAGE_PIXELS = xM.shape[1]
 	return data_sets
 
 def read_data_sets_mol_molw( fname, validation_rate = 0, test_rate = 0, disp = False):
@@ -114,7 +116,7 @@ def read_data_sets_mol_molw( fname, validation_rate = 0, test_rate = 0, disp = F
 
 	"Normalize xM so as to be a set of unit norm random values"
 	xM = np.divide( xM_molw, np.std( xM_molw, axis = 0))
-	yV = jpd.pd_get_yV( pdr, y_id = 'exp')
+	yV = jpd.pd_get_yV( pdr, y_id = 'exp').A1
 
 	X, Y = map( np.array, [xM, yV])
 	assert X.shape[0] == Y.shape[0]
@@ -130,6 +132,9 @@ def read_data_sets_mol_molw( fname, validation_rate = 0, test_rate = 0, disp = F
 	# If test_rate and validation_rate are both zero, 
 	# all data is allocated to train dataset. 
 	data_sets.train = DataSet_CSV( X, Y, disp = disp)
+
+	# The length of descriptors are fed back.
+	data_sets.IMAGE_PIXELS = xM.shape[1]
 
 	return data_sets
 
@@ -232,14 +237,16 @@ class DataSet_CSV(object):
 		assert images.shape[0] == labels.shape[0]
 		self._data_size = images.shape[0]
 
+		self._num_examples = images.shape[0]
+
+		# Convert from [0, 255] -> [0.0, 1.0].
+		images = images.astype(numpy.float32)
+		# images = numpy.multiply(images, 1.0 / 255.0)
+
 		self._images = images
 		self._labels = labels
 		self._epochs_completed = 0
 		self._index_in_epoch = 0
-
-		if disp:
-			print "images.shape =", images.shape
-			print "labels.shape =", labels.shape
 
 	@property
 	def images(self):
@@ -250,6 +257,10 @@ class DataSet_CSV(object):
 		return self._labels
 
 	@property
+	def num_examples(self):
+		return self._num_examples
+
+	@property
 	def data_size(self):
 		return self._data_size
 
@@ -257,10 +268,11 @@ class DataSet_CSV(object):
 	def epochs_completed(self):
 		return self._epochs_completed
 
-	def next_batch(self, batch_size):
+	def next_batch(self, batch_size, fake_data=False):
 		"""
 		Return the next `batch_size` examples from this data set.
 		Fake mode codes are removed. 
+		fake_data is used for compatibilty, but not applicable in this code
 		"""
 
 		start = self._index_in_epoch
