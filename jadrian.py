@@ -1451,8 +1451,7 @@ class _Median_r0( object):
 			
 			mdae = jgrid.mdae_no_regression( xM, yV, ldisp = self.Disp)
 			
-			od['CV Mode'] = ['No regress']
-				
+			od['CV Mode'] = ['No regress']				
 			od['Group(s)'] = [type_id]
 			od['AD: mean (MAD)'] = [ mdae]
 			od['AD: std'] = [ 0]
@@ -2343,6 +2342,425 @@ class Median( object):
 
 		return self
 
+class MedianMeanStd( object):
+	"""
+	This function will obtain all results for redox potential of metabolism.
+	Pandas frames are used for storing input and output.
+
+	The seprate results are obtained by different member functions.
+	"""
+	def __init__( self, input_od, more_in_od, disp = False):
+		"""
+		input_od is used all member functions
+		more_in_od is used only in initialization
+		"""
+		self.od = self.init_od( input_od)
+		self.pdr = pd.read_csv( more_in_od["in_file"])
+		self.pdo = pd.DataFrame()
+		self.out_file = more_in_od['out_file']
+		self.types_l = list(set(self.pdr["Type"].tolist()))
+		print "All types are", self.types_l
+
+		# Define constant variables, which start by capital, in a class
+		# Hence, it can be used without input variable processing
+		self.Disp = disp
+
+	def init_od( self, od): # list up all elements in od for ordering
+		# od['CV Mode'] = ['No regress']	
+
+		# This is input_od list
+		# od = OrderedDict()
+		# od['QC Models (Family ID)'] = [["B3LYP"]]
+		# od['H + S'] = [False]
+		# od['CV Mode'] = ['10*5KF/LOO']
+		# od['Em type'] = ['Chemical potential']
+		# od['Regularization'] = ['None']
+		# od['Bounds/Constraints'] = ['None']
+
+		od['Regression'] = []
+		od['Group(s)'] = []
+		od['median_abs_err'] = []
+		od['mean_abs_err'] = []
+		od['std_abs_err'] = []
+		od['abs_err_vector'] = []
+		od['(coef_,intercept_)'] = []
+		od['results'] = []
+
+		return od
+
+	def _get_xM_yV_r0(self, pdr):
+		"""
+		Depending on an operation mode,
+		xM and yV are selected from the input dataframe. 
+		"""
+		# Input ---------------------
+		# pdr = self.pdr 
+		# ---------------------------
+
+		if self.od["H + S"][0] == True \
+			and self.od["QC Models (Family ID)"][0] == ["B3LYP", "TPSS0"]:			
+			xM, yV = get_xM4_yV( pdr, "Em_in")
+		elif self.od["H + S"][0] == True \
+			and len(self.od["QC Models (Family ID)"][0]) == 1:
+			mode = self.od["QC Models (Family ID)"][0][0]
+			xM, yV = get_xM2_yV( pdr, "Em_in", mode = mode)
+		elif self.od["H + S"][0] == False \
+			and len(self.od["QC Models (Family ID)"][0]) == 1:
+			mode = self.od["QC Models (Family ID)"][0][0]
+			xM, yV = get_xM_yV( pdr, "Em_in", mode = mode)
+
+		return xM, yV	
+
+	def get_xM_yV(self, pdr):
+		"""
+		Depending on an operation mode,
+		xM and yV are selected from the input dataframe. 
+		"""
+		# Input ---------------------
+		# pdr = self.pdr 
+		# ---------------------------
+
+		if self.od["H + S"][0] == True \
+			and self.od["QC Models (Family ID)"][0] == ["B3LYP", "TPSS0"]:			
+			xM, yV = get_xM4_yV( pdr, "Em_in")
+		elif self.od["H + S"][0] == True \
+			and len(self.od["QC Models (Family ID)"][0]) == 1:
+			mode = self.od["QC Models (Family ID)"][0][0]
+			xM, yV = get_xM2_yV( pdr, "Em_in", mode = mode)
+		elif self.od["H + S"][0] == False:
+			# and len(self.od["QC Models (Family ID)"][0]) == 1:
+			mode_l = self.od["QC Models (Family ID)"][0]
+			xM, yV = get_xM_yV( pdr, "Em_in", mode = mode_l)
+
+		return xM, yV	
+
+	def each_mean_base( self, pdr, type_id = 0):
+		"""
+		Working with only one model chemistry case.
+		if type_id is not defined, it becomes 0.
+		"""
+		od = self.od.copy() 
+		xM, yV = self.get_xM_yV( pdr)
+		xv, yv = xM.A1, yV.A1
+		
+		if od['CV Mode'][0] == 'LOO':
+			n = xv.shape[0]
+			kf = cross_validation.KFold( n, n)
+			yvp = yv.copy()
+			mean_yvp = yv.copy()
+			for train, test in kf:
+				xv_train = xv[ train]
+				mean_yvp[ test] = np.mean( xv_train)
+				yvp[ test] = yv[ test] - mean_yvp[test]
+
+			o_d = OrderedDict()
+			o_d['yVp'] = [yv.tolist()]
+			abs_e = np.abs(yv - yvp)
+			o_d['list'] = abs_e.tolist()
+			o_d['median_abs_err'] = np.median( abs_e)
+			o_d['mean_abs_err'] = np.mean( abs_e)
+			o_d['std_abs_err'] = np.std( abs_e)
+			o_d['ci'] = [ (None, np.mat(-x)) for x in mean_yvp]
+		else:
+			raise ValueError("This CV Mode {} is not supported yet.".format(od['CV Mode'][0]))
+			
+		od['Regression'] = ['Mean_Compensation']
+		od['Group(s)'] = [type_id]
+		od['median_abs_err'] = [o_d['median_abs_err']]
+		od['mean_abs_err'] = [o_d['mean_abs_err']]
+		od['std_abs_err'] = [o_d['std_abs_err']]
+		od['abs_err_vector'] = [o_d['list']]
+		od['(coef_,intercept_)'] = [o_d['ci']]
+		od['results'] = [o_d['yVp']]
+		
+		if self.Disp: 
+			print "Type", type_id, ": len(vector) =", len( o_d['list'])
+			print "len(ci) =", len( o_d['ci'])
+
+		return od
+
+	def each_base( self, pdr, type_id = 0): # pdr = pdr[ pdr.Type == type_id]:
+		"""
+		if type_id is not defined, it becomes 0.
+		"""
+		od = self.od.copy() 
+		xM, yV = self.get_xM_yV( pdr)
+		
+		if od['CV Mode'][0] == 'LOO' or type_id == 1:
+			o_d = jgrid.cv_LinearRegression_ci_pred_full_It( xM, yV, n_folds= xM.shape[0], 
+				N_it = 1, ldisp = self.Disp)
+			od['CV Mode'] = ['LOO']
+		else:
+			o_d = jgrid.cv_LinearRegression_ci_pred_full_It( xM, yV, N_it = 10, ldisp = self.Disp)
+			
+		od['Regression'] = ['Linear']
+		od['Group(s)'] = [type_id]
+		od['median_abs_err'] = [o_d['median_abs_err']]
+		od['mean_abs_err'] = [o_d['mean_abs_err']]
+		od['std_abs_err'] = [o_d['std_abs_err']]
+		od['abs_err_vector'] = [o_d['list']]
+		od['(coef_,intercept_)'] = [o_d['ci']]
+		od['results'] = [o_d['yVp']]
+		
+		if self.Disp: 
+			print "Type", type_id, ": len(vector) =", len( o_d['list'])
+			print "len(ci) =", len( o_d['ci'])
+
+		return od
+
+	def _each_r0( self):
+		"""
+		Get median value for each group.
+		These values will be used to generate global independent regression (ensemble).
+		The CV Mode can be controlled outside. 
+		"""
+		# Input ---------------------
+		pdr = self.pdr 
+		# ---------------------------
+
+		pdo_frame = pd.DataFrame()
+		for type_id in self.types_l:
+			# If the base parameter is useful, use it. 
+			od = self.od.copy() # inherent some values form a self variable   
+			# xM4 terminology will not be used for generalization. 
+			#xM, yV = jadrian.get_xM2_yV( pdr[ pdr.Type == type_id], "Em_in", mode = od['QC Models (Family ID)'][0][0])
+			xM, yV = self.get_xM_yV( pdr[ pdr.Type == type_id])
+			
+			if od['CV Mode'][0] == 'LOO' or type_id == 1:
+				o_d = jgrid.cv_LinearRegression_ci_pred_full_It( xM, yV, n_folds= xM.shape[0], N_it = 1, ldisp = self.Disp)
+				od['CV Mode'] = ['LOO']
+			else:
+				o_d = jgrid.cv_LinearRegression_ci_pred_full_It( xM, yV, N_it = 10, ldisp = self.Disp)
+				
+			od['Group(s)'] = [type_id]
+			od['median_abs_err'] = [o_d['median_abs_error']]
+			od['mean_abs_err'] = [o_d['mean_abs_err']]
+			od['std_abs_err'] = [o_d['std_abs_err']]
+			od['abs_err_vector'] = [o_d['list']]
+			od['(coef_,intercept_)'] = [o_d['ci']]
+			od['results'] = [o_d['yVp']]
+			
+			if self.Disp: 
+				print "Type", type_id, ": len(vector) =", len( o_d['list'])
+				print "len(ci) =", len( o_d['ci'])
+			pdo_i = pd.DataFrame( od)
+			#print pdo_i['QC Models (Family ID)'][0]
+			#print pdo_i
+			pdo_frame = pdo_frame.append( pdo_i, ignore_index=True)
+		
+		# Return output data using self variables ------------------
+		self._pdo_frame = pdo_frame
+		self.pdo = self.pdo.append( pdo_frame, ignore_index=True)
+		# ----------------------------------------------------------
+
+	def each_mean( self):
+		"""
+		Get median value for each group.
+		These values will be used to generate global independent regression (ensemble).
+		The CV Mode can be controlled outside. 
+		"""
+		# Input ---------------------
+		pdr = self.pdr 
+		# ---------------------------
+
+		pdo_frame = pd.DataFrame()
+		for type_id in self.types_l:
+			od = self.each_mean_base( pdr[ pdr.Type == type_id], type_id)
+			pdo_i = pd.DataFrame( od)
+			pdo_frame = pdo_frame.append( pdo_i, ignore_index=True)
+		
+		# Return output data using self variables ------------------
+		self._pdo_frame = pdo_frame
+		self.pdo = self.pdo.append( pdo_frame, ignore_index=True)
+		# ----------------------------------------------------------
+
+	def each( self):
+		"""
+		Get median value for each group.
+		These values will be used to generate global independent regression (ensemble).
+		The CV Mode can be controlled outside. 
+		"""
+		# Input ---------------------
+		pdr = self.pdr 
+		# ---------------------------
+
+		pdo_frame = pd.DataFrame()
+		for type_id in self.types_l:
+			od = self.each_base( pdr[ pdr.Type == type_id], type_id)
+			pdo_i = pd.DataFrame( od)
+			pdo_frame = pdo_frame.append( pdo_i, ignore_index=True)
+		
+		# Return output data using self variables ------------------
+		self._pdo_frame = pdo_frame
+		self.pdo = self.pdo.append( pdo_frame, ignore_index=True)
+		# ----------------------------------------------------------
+
+	def indepedentMultiple(self, groups = [1,2,3,4], flag_regress = True):
+		# Input --------------------
+		pdo_frame = self._pdo_frame
+		od = self.od.copy()
+		# --------------------------
+
+		ad_l = []
+		for group in groups:
+			p = pdo_frame[ pdo_frame['Group(s)'] == group]
+			n = len( p['abs_err_vector'].tolist()[0])
+			if self.Disp:
+				print "Group", group, "with", n, "AD elements"
+			ad_l.extend( p['abs_err_vector'].tolist()[0])
+
+		od['Regression'] = ['Linear']	
+		od['Group(s)'] = ['Independent multiple: {}'.format( groups)]
+		od['median_abs_err'] = [ np.median( ad_l)]
+		od['mean_abs_err'] = [ np.mean( ad_l)]
+		od['std_abs_err'] = [ np.std( ad_l)]
+		od['abs_err_vector'] = [ ad_l]
+		od['(coef_,intercept_)'] = ['t.b.d.']
+		od['results'] = ['Look at each type']
+
+		if flag_regress is not True:
+			od['CV Mode'] = ['No regress'] # this part is included. 
+			od['Regression'] = ['No_Regression']
+
+		pdo_i = pd.DataFrame( od)
+
+		# Return -------------------------------------
+		self.pdo = self.pdo.append( pdo_i, ignore_index=True)
+		# --------------------------------------------
+
+	def indepedentMultiple_nr(self, groups = [1,2,3,4]):
+		"""
+		indepedentMultiple for no regress case
+		"""
+		self.indepedentMultiple(groups = groups, flag_regress = False)
+
+	def Is_oneQC_noHS(self, od):
+		"""
+		If it is started from the capital, 
+		it can be used in genral without self variables.
+		"""
+		if len(od["QC Models (Family ID)"][0]) == 1 and \
+			od['H + S'][0] == False:
+			return True
+		else:
+			return False
+
+	def each_run(self):
+	#def each_indepedentMultiple(self):
+		
+		if self.Is_oneQC_noHS( self.od):
+			"""
+			No regression is included only for one QC models and no H+S cases.
+			"""
+			self.each_noregress()
+			self.indepedentMultiple_nr(self.types_l)
+			if self.types_l != [1,2,4]:
+				# if full set is not [1,2,4], we run for [1,2,4]
+				self.indepedentMultiple_nr([1,2,4])
+
+			self.globalSingle_nr(self.types_l)
+			if self.types_l != [1,2,4]:
+				self.globalSingle_nr([1,2,4])
+
+			self.each_mean()
+
+		self.each()
+		self.indepedentMultiple(self.types_l)
+		if self.types_l != [1,2,4]:
+			self.indepedentMultiple([1,2,4])
+		self.globalSingle( self.types_l)
+		if self.types_l != [1,2,4]:
+			self.globalSingle([1,2,4])
+
+	def globalSingle(self, groups = [1,2,3,4]):
+
+		od = self.each_base( self.pdr.query( "Type in {}".format( groups)))
+		od['Group(s)'] = ['Global single: {}'.format(groups)]
+		pdo_i = pd.DataFrame( od)
+
+		# Return processing -----------------------------
+		self.pdo = self.pdo.append( pdo_i, ignore_index=True)
+		# -----------------------------------------------
+
+	def each_noregress_base( self, pdr): #pdr[ pdr.Type == type_id]
+		od = self.od.copy() # inherent some values form a self variable   
+		# xM4 terminology will not be used for generalization. 
+		#xM, yV = jadrian.get_xM2_yV( pdr[ pdr.Type == type_id], "Em_in", mode = od['QC Models (Family ID)'][0][0])
+		xM, yV = self.get_xM_yV( pdr)
+		
+		ad_l = np.abs( xM - yV).A1.tolist()
+		
+		od['Regression'] = ['No_Regression']
+		od['CV Mode'] = ['No regress']			
+		od['median_abs_err'] = [ np.median( ad_l)]
+		od['mean_abs_err'] = [ np.mean( ad_l)]
+		od['std_abs_err'] = [ np.std( ad_l)]
+		od['abs_err_vector'] = [ ad_l]
+		od['(coef_,intercept_)'] = ['t.b.d.']
+		od['results'] = [xM.A1.tolist()]
+
+		return od
+
+	def each_noregress( self):
+		"""
+		Get median value for each group without regression.
+		"""
+		# Input ---------------------
+		pdr = self.pdr 
+		# ---------------------------
+
+		pdo_frame = pd.DataFrame()
+		for type_id in self.types_l:
+ 			od = self.each_noregress_base( pdr[ pdr.Type == type_id])
+ 			od['Group(s)'] = [type_id]
+			pdo_i = pd.DataFrame( od)
+			pdo_frame = pdo_frame.append( pdo_i, ignore_index=True)
+		
+		# Return output data using self variables ------------------
+		self._pdo_frame = pdo_frame
+		self.pdo = self.pdo.append( pdo_frame, ignore_index=True)
+		# ----------------------------------------------------------		
+
+	def globalSingle_nr(self, groups = [1,2,3,4]):
+
+		od = self.each_noregress_base( self.pdr.query( "Type in {}".format( groups)))
+		od['Group(s)'] = ['Global single: {}'.format(groups)]
+		pdo_i = pd.DataFrame( od)
+
+		# Return processing -----------------------------
+		self.pdo = self.pdo.append( pdo_i, ignore_index=True)
+		# -----------------------------------------------
+
+	def globalSingles(self):
+		"""
+		[1,2,3,4] and [1,2,4] will be a set of groups, respectively. 
+		"""
+		self.globalSingle( self.types_l)
+		if self.types_l != [1,2,4]:
+			self.globalSingle([1,2,4])
+
+	def run(self):
+		# Calculate median for each group
+		#self.each_indepedentMultiple()
+		self.each_run()
+		#self.globalSingles()
+
+		# Returning self, it can be used recursive processing
+
+		print "The result dataframe is saved to", self.out_file
+		self.pdo.to_csv( self.out_file, index = False)
+		return self
+	
+	def test(self):
+		print "Self testing is performed."
+		print "self.od\n", self.od
+		print "self.pdr.keys()\n", self.pdr.keys()
+
+		print "The final output data frame is as follows:"
+		print "self.pdo\n", self.pdo
+
+		return self
+
 
 def get_od_base( mode = "H+S & B3LYP+TPSS0"): # od is OrderedDict()
 	"""
@@ -2640,6 +3058,25 @@ def iter_od_base( default_d = {'CV Mode': ['10*5KF/LOO']}): # od is OrderedDict(
 	aod['op_mode'] = op_mode
 	yield od, aod
 
+	############################################
+	# "B3LYP_pos"
+	############################################
+	op_mode = "B3LYP_pos"
+	print "Processing mode is", op_mode
+	od = OrderedDict()
+	od['QC Models (Family ID)'] = [["B3LYP_pos"]]
+	od['H + S'] = [False]
+	# od['CV Mode'] = ['10*5KF/LOO']
+	od['CV Mode'] = default_d['CV Mode']
+	od['Em type'] = ['Chemical potential']
+	od['Regularization'] = ['None']
+	od['Bounds/Constraints'] = ['None']
+
+	aod = OrderedDict()
+	aod['in_file'] = "sheet/b3lyp_pos.csv"
+	aod['out_file'] = "sheet/out_" + op_mode + ".csv" 
+	aod['op_mode'] = op_mode
+	yield od, aod
 
 def run_median( test_flag = False, default_d = {'CV Mode': '10*5KF/LOO'}):
 	"""
@@ -2663,6 +3100,33 @@ def run_median( test_flag = False, default_d = {'CV Mode': '10*5KF/LOO'}):
 	for s in self_od.values():
 		pdo_all = pdo_all.append( s.pdo, ignore_index = True)
 	all_out_file = "sheet/out_{}.csv".format( len(self_od))
+	print 'The collected dataframe is saved to', all_out_file
+	pdo_all.to_csv( all_out_file, index = False)
+
+	return self_od
+
+def run_medianmeanstd( test_flag = False, default_d = {'CV Mode': ['LOO']}):
+	"""
+	Multiple cases are invoked here.
+	Now save for each mode. Later, I will save all mode results at the same time.
+	"""
+
+	self_od = OrderedDict()
+	for od, aod in iter_od_base( default_d):
+		"""
+		All iteration results will be save to self_od
+		"""
+		op_mode = aod['op_mode']
+		if test_flag:
+			self_od[op_mode] = MedianMeanStd( od, aod).run().test()
+		else:
+			self_od[op_mode] = MedianMeanStd( od, aod).run()
+
+	# All pdo are collected and saved to out_x.csv where x is number of op_mode(s).
+	pdo_all = pd.DataFrame()
+	for s in self_od.values():
+		pdo_all = pdo_all.append( s.pdo, ignore_index = True)
+	all_out_file = "sheet/out_mms_{}.csv".format( len(self_od))
 	print 'The collected dataframe is saved to', all_out_file
 	pdo_all.to_csv( all_out_file, index = False)
 

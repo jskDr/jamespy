@@ -8,6 +8,7 @@ import numpy
 import pandas as pd
 import jpandas as jpd
 import numpy as np
+import random
 
 
 def placeholder_inputs(batch_size, mnist_IMAGE_PIXELS):
@@ -68,6 +69,149 @@ def read_data_sets_csv( fname, validation_rate = 0, test_rate = 0, disp = False)
 	data_sets.train = DataSet_CSV( X, Y, disp = disp)
 
 	return data_sets
+
+def read_data_sets_mol_md( fname, validation_rate = 0, test_rate = 0, disp = False):
+	class DataSets(object):
+		pass
+	data_sets = DataSets()
+
+	pdr = pd.read_csv( fname)
+	xM_fp = jpd.pd_get_xM( pdr)
+	xM_key = jpd.pd_get_xM_MACCSkeys( pdr)
+	xM_molw = jpd.pd_get_xM_molw( pdr)
+	xM_molw = np.divide( xM_molw, np.std( xM_molw, axis = 0))
+
+	xM_lasa = jpd.pd_get_xM_lasa( pdr)
+	xM_lasa = np.divide( xM_lasa, np.std( xM_lasa, axis = 0))
+
+	xM = np.concatenate( [xM_fp, xM_key, xM_molw, xM_lasa], axis = 1)
+
+	yV = jpd.pd_get_yV( pdr, y_id = 'exp').A1
+	yV = [1 if y > 0 else 0 for y in yV] # classification is performed
+
+	X, Y = map( np.array, [xM, yV])
+	assert X.shape[0] == Y.shape[0]
+
+	if test_rate > 0:
+		X, Y, X_test, Y_test = XY_split( X, Y, test_rate)
+		data_sets.test = DataSet_CSV( X_test, Y_test, disp = disp)
+
+	if validation_rate > 0:
+		X, Y, X_val, Y_val = XY_split( X, Y, validation_rate)
+		data_sets.validation = DataSet_CSV( X_val, Y_val, disp = disp)
+
+	# If test_rate and validation_rate are both zero, 
+	# all data is allocated to train dataset. 
+	data_sets.train = DataSet_CSV( X, Y, disp = disp)
+
+	data_sets.IMAGE_PIXELS = xM.shape[1]
+	return data_sets
+
+def read_data_sets_mol_sd( fname, validation_rate = 0, test_rate = 0, disp = False):
+	class DataSets(object):
+		pass
+	data_sets = DataSets()
+
+	pdr = pd.read_csv( fname)
+	xM_fp = jpd.pd_get_xM( pdr)
+	#xM_key = jpd.pd_get_xM_MACCSkeys( pdr)
+	#xM_molw = jpd.pd_get_xM_molw( pdr)
+	#xM_lasa = jpd.pd_get_xM_lasa( pdr)
+	#xM = np.concatenate( [xM_fp, xM_key, xM_molw, xM_lasa], axis = 1)
+	xM = xM_fp
+
+	yV = jpd.pd_get_yV( pdr, y_id = 'exp').A1
+	yV = [1 if y > 0 else 0 for y in yV] # classification is performed
+
+	X, Y = map( np.array, [xM, yV])
+	assert X.shape[0] == Y.shape[0]
+
+	if test_rate > 0:
+		X, Y, X_test, Y_test = XY_split( X, Y, test_rate)
+		data_sets.test = DataSet_CSV( X_test, Y_test, disp = disp)
+
+	if validation_rate > 0:
+		X, Y, X_val, Y_val = XY_split( X, Y, validation_rate)
+		data_sets.validation = DataSet_CSV( X_val, Y_val, disp = disp)
+
+	# If test_rate and validation_rate are both zero, 
+	# all data is allocated to train dataset. 
+	data_sets.train = DataSet_CSV( X, Y, disp = disp)
+
+	data_sets.IMAGE_PIXELS = xM.shape[1]
+	return data_sets
+
+def read_data_sets_mol_sd_molw( fname, validation_rate = 0, test_rate = 0, disp = False):
+	class DataSets(object):
+		pass
+	data_sets = DataSets()
+
+	pdr = pd.read_csv( fname)
+	#xM_fp = jpd.pd_get_xM( pdr)
+	#xM_key = jpd.pd_get_xM_MACCSkeys( pdr)
+	xM_molw = jpd.pd_get_xM_molw( pdr)
+	#xM_lasa = jpd.pd_get_xM_lasa( pdr)
+	#xM = np.concatenate( [xM_fp, xM_key, xM_molw, xM_lasa], axis = 1)
+	#xM = xM_molw
+	xM = np.divide( xM_molw, np.std( xM_molw, axis = 0))
+
+	yV = jpd.pd_get_yV( pdr, y_id = 'exp').A1
+	yV = [1 if y > 0 else 0 for y in yV] # classification is performed
+
+	X, Y = map( np.array, [xM, yV])
+	assert X.shape[0] == Y.shape[0]
+
+	if test_rate > 0:
+		X, Y, X_test, Y_test = XY_split( X, Y, test_rate)
+		data_sets.test = DataSet_CSV( X_test, Y_test, disp = disp)
+
+	if validation_rate > 0:
+		X, Y, X_val, Y_val = XY_split( X, Y, validation_rate)
+		data_sets.validation = DataSet_CSV( X_val, Y_val, disp = disp)
+
+	# If test_rate and validation_rate are both zero, 
+	# all data is allocated to train dataset. 
+	data_sets.train = DataSet_CSV( X, Y, disp = disp)
+
+	data_sets.IMAGE_PIXELS = xM.shape[1]
+	return data_sets	
+
+	
+def read_data_sets_mol_sd_key( fname, validation_rate = 0, test_rate = 0, disp = False):
+	class DataSets(object):
+		pass
+	data_sets = DataSets()
+
+	pdr = pd.read_csv( fname)
+	#xM_fp = jpd.pd_get_xM( pdr)
+	xM_key = jpd.pd_get_xM_MACCSkeys( pdr)
+	#xM_molw = jpd.pd_get_xM_molw( pdr)
+	#xM_lasa = jpd.pd_get_xM_lasa( pdr)
+	#xM = np.concatenate( [xM_fp, xM_key, xM_molw, xM_lasa], axis = 1)
+	xM = xM_key
+	#xM = np.divide( xM_molw, np.std( xM_molw, axis = 0))
+
+	yV = jpd.pd_get_yV( pdr, y_id = 'exp').A1
+	yV = [1 if y > 0 else 0 for y in yV] # classification is performed
+
+	X, Y = map( np.array, [xM, yV])
+	assert X.shape[0] == Y.shape[0]
+
+	if test_rate > 0:
+		X, Y, X_test, Y_test = XY_split( X, Y, test_rate)
+		data_sets.test = DataSet_CSV( X_test, Y_test, disp = disp)
+
+	if validation_rate > 0:
+		X, Y, X_val, Y_val = XY_split( X, Y, validation_rate)
+		data_sets.validation = DataSet_CSV( X_val, Y_val, disp = disp)
+
+	# If test_rate and validation_rate are both zero, 
+	# all data is allocated to train dataset. 
+	data_sets.train = DataSet_CSV( X, Y, disp = disp)
+
+	data_sets.IMAGE_PIXELS = xM.shape[1]
+	return data_sets	
+
 
 def read_data_sets_mol( fname, validation_rate = 0, test_rate = 0, disp = False):
 	class DataSets(object):
@@ -138,6 +282,68 @@ def read_data_sets_mol_molw( fname, validation_rate = 0, test_rate = 0, disp = F
 
 	return data_sets
 
+################################
+### Stability
+################################
+def read_data_sets_sd_logK( fname, y_id = "log_K_hyd", th_l = ['<', 2.81], shuffle = True,
+							validation_rate = 0, test_rate = 0, disp = False):
+
+	#define closure class and functions 
+	class DataSets(object):
+		pass
+
+	def get_xMyV( fname, y_id):
+		pdr = pd.read_csv( fname)
+		xM_fp = jpd.pd_get_xM( pdr)
+		
+		xM = xM_fp
+		yV = jpd.pd_get_yV( pdr, y_id = y_id)
+		return xM, yV
+
+	def do_shuffle( xM, yV):
+		idx_l = range(xM.shape[0])
+		random.shuffle( idx_l) # inplace command
+		xM_sf = xM[ idx_l, :]
+		yV_sf = yV[ idx_l]
+		return xM_sf, yV_sf
+
+	def gen_bin_vec( yV, th_l):
+		if th_l[0] == '>':
+			yV_bin = [1 if y > th_l[1] else 0 for y in yV] # classification is performed
+		else:
+			yV_bin = [1 if y < th_l[1] else 0 for y in yV] # classification is performed
+
+		return yV_bin
+	#===================================================================
+
+	# main codes are started
+	data_sets = DataSets()
+
+	xM, yV = get_xMyV( fname, y_id)
+	yv = yV.A1
+
+	if shuffle:
+		xM, yv = do_shuffle( xM, yv)
+
+	yv_bin = gen_bin_vec( yv, th_l)
+
+	X, Y = map( np.array, [xM, yv_bin])
+	assert X.shape[0] == Y.shape[0]
+
+	if test_rate > 0:
+		X, Y, X_test, Y_test = XY_split( X, Y, test_rate)
+		data_sets.test = DataSet_CSV( X_test, Y_test, disp = disp)
+
+	if validation_rate > 0:
+		X, Y, X_val, Y_val = XY_split( X, Y, validation_rate)
+		data_sets.validation = DataSet_CSV( X_val, Y_val, disp = disp)
+
+	# If test_rate and validation_rate are both zero, 
+	# all data is allocated to train dataset. 
+	data_sets.train = DataSet_CSV( X, Y, disp = disp)
+
+	data_sets.IMAGE_PIXELS = xM.shape[1]
+	return data_sets
 
 def read_data_sets_mol_gen( N_shape, sig = 0.1, validation_rate = 0, test_rate = 0, disp = False):
 	"""

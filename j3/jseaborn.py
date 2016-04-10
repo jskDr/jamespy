@@ -1,10 +1,12 @@
 # this is extension of seaborn by James for machine learning.
+from __future__ import print_function
+
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 
 # The following libraries are designed by James
-import jgrid
+import j3.jgrid as jgrid
 
 def set_pdi_d( pdi_d, method, grid_scores_):
 	pdi_d[ method] = pd.DataFrame()
@@ -106,7 +108,7 @@ def pdi_gs_full( method, xM_l, yV, X_concat = None, mode = "Ridge", expension = 
 		A_l = xM_l
 		gs = jgrid.gs_BIKE_Ridge( A_l, yV, alphas_log=(-3, 2, 10), X_concat = X_concat, n_folds=n_folds)
 	else:
-		print "Mode {} is not supported.".format( mode)
+		print( "Mode {} is not supported.".format( mode))
 	# gs.grid_scores_
 
 	if expension:

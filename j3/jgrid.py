@@ -7,13 +7,13 @@ import numpy as np
 import pandas as pd
 from operator import itemgetter
 
-import jutil
-import jpyx
-from jsklearn import binary_model
+import j3.jutil as jutil
+import jx3.jpyx as jpyx
+from j3.jsklearn import binary_model
 
 def gs_Lasso( xM, yV, alphas_log = (-1, 1, 9), n_folds=5, n_jobs = -1):
 
-	print xM.shape, yV.shape
+	print(xM.shape, yV.shape)
 
 	clf = linear_model.Lasso()
 	#parmas = {'alpha': np.logspace(1, -1, 9)}
@@ -27,7 +27,7 @@ def gs_Lasso( xM, yV, alphas_log = (-1, 1, 9), n_folds=5, n_jobs = -1):
 
 def gs_Lasso_norm( xM, yV, alphas_log = (-1, 1, 9)):
 
-	print xM.shape, yV.shape
+	print(xM.shape, yV.shape)
 
 	clf = linear_model.Lasso( normalize = True)
 	#parmas = {'alpha': np.logspace(1, -1, 9)}
@@ -46,39 +46,39 @@ def gs_Lasso_kf( xM, yV, alphas_log_l):
 	score_l = []
 	for ix, (tr, te) in enumerate( kf5_ext):
 
-		print '{}th fold external validation stage ============================'.format( ix + 1)
+		print('{}th fold external validation stage ============================'.format( ix + 1))
 		xM_in = xM[ tr, :]
 		yV_in = yV[ tr, 0]
 
-		print 'First Lasso Stage'
+		print('First Lasso Stage')
 		gs1 = gs_Lasso( xM_in, yV_in, alphas_log_l[0])
-		print 'Best score:', gs1.best_score_
-		print 'Best param:', gs1.best_params_
-		print gs1.grid_scores_
+		print('Best score:', gs1.best_score_)
+		print('Best param:', gs1.best_params_)
+		print(gs1.grid_scores_)
 
 
 		nz_idx = gs1.best_estimator_.sparse_coef_.indices
 		xM_in_nz = xM_in[ :, nz_idx]
 
-		print 'Second Lasso Stage'
+		print('Second Lasso Stage')
 		gs2 = gs_Lasso( xM_in_nz, yV_in, alphas_log_l[1])
-		print 'Best score:', gs2.best_score_
-		print 'Best param:', gs2.best_params_
-		print gs2.grid_scores_
+		print('Best score:', gs2.best_score_)
+		print('Best param:', gs2.best_params_)
+		print(gs2.grid_scores_)
 
-		print 'External Validation Stage'
+		print('External Validation Stage')
 		xM_out = xM[ te, :]
 		yV_out = yV[ te, 0]
 		xM_out_nz = xM_out[:, nz_idx]
 		score = gs2.score( xM_out_nz, yV_out)
 
-		print score		
+		print(score)		
 		score_l.append( score)
 
-		print ''
+		print('')
 
-	print 'all scores:', score_l
-	print 'average scores:', np.mean( score_l)
+	print('all scores:', score_l)
+	print('average scores:', np.mean( score_l))
 
 	return score_l
 
@@ -89,27 +89,27 @@ def gs_Lasso_kf_ext( xM, yV, alphas_log_l):
 	score_l = []
 	for ix, (tr, te) in enumerate( kf5_ext):
 
-		print '{}th fold external validation stage ============================'.format( ix + 1)
+		print('{}th fold external validation stage ============================'.format( ix + 1))
 		xM_in = xM[ tr, :]
 		yV_in = yV[ tr, 0]
 
-		print 'First Lasso Stage'
+		print('First Lasso Stage')
 		gs1 = gs_Lasso( xM_in, yV_in, alphas_log_l[0])
-		print 'Best score:', gs1.best_score_
-		print 'Best param:', gs1.best_params_
-		print gs1.grid_scores_
+		print('Best score:', gs1.best_score_)
+		print('Best param:', gs1.best_params_)
+		print(gs1.grid_scores_)
 
 
 		nz_idx = gs1.best_estimator_.sparse_coef_.indices
 		xM_in_nz = xM_in[ :, nz_idx]
 
-		print 'Second Lasso Stage'
+		print('Second Lasso Stage')
 		gs2 = gs_Lasso( xM_in_nz, yV_in, alphas_log_l[1])
-		print 'Best score:', gs2.best_score_
-		print 'Best param:', gs2.best_params_
-		print gs2.grid_scores_
+		print('Best score:', gs2.best_score_)
+		print('Best param:', gs2.best_params_)
+		print(gs2.grid_scores_)
 
-		print 'External Validation Stage'
+		print('External Validation Stage')
 		# Obtain prediction model by whole data including internal validation data
 		alpha = gs2.best_params_['alpha']
 		clf = linear_model.Lasso( alpha = alpha)
@@ -120,19 +120,19 @@ def gs_Lasso_kf_ext( xM, yV, alphas_log_l):
 		xM_out_nz = xM_out[:, nz_idx]
 		score = clf.score( xM_out_nz, yV_out)
 
-		print score		
+		print(score)		
 		score_l.append( score)
 
-		print ''
+		print('')
 
-	print 'all scores:', score_l
-	print 'average scores:', np.mean( score_l)
+	print('all scores:', score_l)
+	print('average scores:', np.mean( score_l))
 
 	return score_l
 
 def _gs_Ridge_r0( xM, yV, alphas_log = (1, -1, 9)):
 
-	print xM.shape, yV.shape
+	print(xM.shape, yV.shape)
 
 	clf = linear_model.Ridge()
 	#parmas = {'alpha': np.logspace(1, -1, 9)}
@@ -151,7 +151,7 @@ def gs_Ridge_Asupervising_2fp( xM1, xM2, yV, s_l, alpha_l):
 	"""
 	r2_l2 = list()	
 	for alpha in alpha_l:
-		print alpha
+		print(alpha)
 		r2_l = cv_Ridge_Asupervising_2fp( xM1, xM2, yV, s_l, alpha)
 		r2_l2.append( r2_l)
 	return r2_l2
@@ -159,7 +159,7 @@ def gs_Ridge_Asupervising_2fp( xM1, xM2, yV, s_l, alpha_l):
 
 def _cv_LinearRegression_r0( xM, yV):
 
-	print xM.shape, yV.shape
+	print(xM.shape, yV.shape)
 
 	clf = linear_model.Ridge()
 	kf5 = cross_validation.KFold( xM.shape[0], n_folds=5, shuffle=True)
@@ -169,25 +169,25 @@ def _cv_LinearRegression_r0( xM, yV):
 
 def _cv_LinearRegression_r1( xM, yV):
 
-	print xM.shape, yV.shape
+	print(xM.shape, yV.shape)
 
 	clf = linear_model.LinearRegression()
 	kf5 = cross_validation.KFold( xM.shape[0], n_folds=5, shuffle=True)
 	cv_scores = cross_validation.cross_val_score( clf, xM, yV, scoring = 'r2', cv = kf5, n_jobs = -1)
 
-	print 'R^2 mean, std -->', np.mean( cv_scores), np.std( cv_scores)
+	print('R^2 mean, std -->', np.mean( cv_scores), np.std( cv_scores))
 
 	return cv_scores
 
 def _cv_LinearRegression_r2( xM, yV, scoring = 'r2'):
 
-	print xM.shape, yV.shape
+	print(xM.shape, yV.shape)
 
 	clf = linear_model.LinearRegression()
 	kf5 = cross_validation.KFold( xM.shape[0], n_folds=5, shuffle=True)
 	cv_scores = cross_validation.cross_val_score( clf, xM, yV, scoring = scoring, cv = kf5, n_jobs = -1)
 
-	print '{}: mean, std -->'.format( scoring), np.mean( cv_scores), np.std( cv_scores)
+	print('{}: mean, std -->'.format( scoring), np.mean( cv_scores), np.std( cv_scores))
 
 	return cv_scores
 
@@ -201,7 +201,7 @@ def cv_LinearRegression( xM, yV, n_folds = 5, scoring = 'median_absolute_error',
 	"""  
 	
 	if disp:
-		print xM.shape, yV.shape
+		print(xM.shape, yV.shape)
 
 	clf = linear_model.LinearRegression()
 	kf5 = cross_validation.KFold( xM.shape[0], n_folds=n_folds, shuffle=True)
@@ -219,7 +219,7 @@ def cv_LinearRegression( xM, yV, n_folds = 5, scoring = 'median_absolute_error',
 			raise ValueError( "{} scoring is not supported.".format( scoring))
 
 	if disp: # Now only this flag is on, the output will be displayed. 
-		print '{}: mean, std -->'.format( scoring), np.mean( cv_score_l), np.std( cv_score_l)
+		print('{}: mean, std -->'.format( scoring), np.mean( cv_score_l), np.std( cv_score_l))
 
 	return cv_score_l
 
@@ -233,7 +233,7 @@ def cv_LinearRegression_ci( xM, yV, n_folds = 5, scoring = 'median_absolute_erro
 	"""  
 	
 	if disp:
-		print xM.shape, yV.shape
+		print(xM.shape, yV.shape)
 
 	clf = linear_model.LinearRegression()
 	kf5 = cross_validation.KFold( xM.shape[0], n_folds=n_folds, shuffle=True)
@@ -255,7 +255,7 @@ def cv_LinearRegression_ci( xM, yV, n_folds = 5, scoring = 'median_absolute_erro
 			raise ValueError( "{} scoring is not supported.".format( scoring))
 
 	if disp: # Now only this flag is on, the output will be displayed. 
-		print '{}: mean, std -->'.format( scoring), np.mean( cv_score_l), np.std( cv_score_l)
+		print('{}: mean, std -->'.format( scoring), np.mean( cv_score_l), np.std( cv_score_l))
 
 	return cv_score_l, ci_l
 
@@ -269,7 +269,7 @@ def cv_LinearRegression_ci_pred( xM, yV, n_folds = 5, scoring = 'median_absolute
 	"""  
 	
 	if disp:
-		print xM.shape, yV.shape
+		print(xM.shape, yV.shape)
 
 	clf = linear_model.LinearRegression()
 	kf5 = cross_validation.KFold( xM.shape[0], n_folds=n_folds, shuffle=True)
@@ -293,7 +293,7 @@ def cv_LinearRegression_ci_pred( xM, yV, n_folds = 5, scoring = 'median_absolute
 			raise ValueError( "{} scoring is not supported.".format( scoring))
 
 	if disp: # Now only this flag is on, the output will be displayed. 
-		print '{}: mean, std -->'.format( scoring), np.mean( cv_score_l), np.std( cv_score_l)
+		print('{}: mean, std -->'.format( scoring), np.mean( cv_score_l), np.std( cv_score_l))
 
 	return cv_score_l, ci_l, yVp.A1.tolist()
 
@@ -308,7 +308,7 @@ def cv_LinearRegression_ci_pred_full( xM, yV, n_folds = 5, disp = False):
 	"""  
 	
 	if disp:
-		print xM.shape, yV.shape
+		print(xM.shape, yV.shape)
 
 	clf = linear_model.LinearRegression()
 	kf5 = cross_validation.KFold( xM.shape[0], n_folds=n_folds, shuffle=True)
@@ -348,7 +348,7 @@ def cv_LinearRegression_It( xM, yV, n_folds = 5, scoring = 'median_absolute_erro
 		   'list': cv_score_le}
 	
 	if disp or ldisp:
-		print '{0}: mean(+/-std) --> {1}(+/-{2})'.format( scoring, o_d['mean'], o_d['std'])
+		print('{0}: mean(+/-std) --> {1}(+/-{2})'.format( scoring, o_d['mean'], o_d['std']))
 		
 	return o_d
 
@@ -370,7 +370,7 @@ def cv_LinearRegression_ci_It( xM, yV, n_folds = 5, scoring = 'median_absolute_e
 		   'ci': ci_le}
 	
 	if disp or ldisp:
-		print '{0}: mean(+/-std) --> {1}(+/-{2})'.format( scoring, o_d['mean'], o_d['std'])
+		print('{0}: mean(+/-std) --> {1}(+/-{2})'.format( scoring, o_d['mean'], o_d['std']))
 		
 	return o_d
 
@@ -395,7 +395,7 @@ def cv_LinearRegression_ci_pred_It( xM, yV, n_folds = 5, scoring = 'median_absol
 		   'yVp': yVp_ltype_l}
 	
 	if disp or ldisp:
-		print '{0}: mean(+/-std) --> {1}(+/-{2})'.format( scoring, o_d['mean'], o_d['std'])
+		print('{0}: mean(+/-std) --> {1}(+/-{2})'.format( scoring, o_d['mean'], o_d['std']))
 		
 	return o_d
 
@@ -455,13 +455,13 @@ def cv_LinearRegression_A( xM, yV, s_l):
 		A_molw_train = A_molw[:len(train), :]
 		A_molw_test = A_molw[len(train):, :]
 
-		print A_molw_train.shape, yV[ train, 0].shape
+		print(A_molw_train.shape, yV[ train, 0].shape)
 		lr.fit( A_molw_train, yV[ train, 0])
 
 		#print A_molw_test.shape, yV[ test, 0].shape
 		r2_l.append( lr.score( A_molw_test, yV[ test, 0]))
 
-	print 'R^2 mean, std -->', np.mean( r2_l), np.std( r2_l)
+	print('R^2 mean, std -->', np.mean( r2_l), np.std( r2_l))
 
 	return r2_l	
 
@@ -485,13 +485,13 @@ def cv_LinearRegression_Asupervising( xM, yV, s_l):
 		A_molw_train = A_molw[:len(train), :]
 		A_molw_test = A_molw[len(train):, :]
 
-		print A_molw_train.shape, yV[ train, 0].shape
+		print(A_molw_train.shape, yV[ train, 0].shape)
 		lr.fit( A_molw_train, yV[ train, 0])
 
 		#print A_molw_test.shape, yV[ test, 0].shape
 		r2_l.append( lr.score( A_molw_test, yV[ test, 0]))
 
-	print 'R^2 mean, std -->', np.mean( r2_l), np.std( r2_l)
+	print('R^2 mean, std -->', np.mean( r2_l), np.std( r2_l))
 
 	return r2_l	
 
@@ -524,7 +524,7 @@ def cv_LinearRegression_Asupervising_molw( xM, yV, s_l):
 		#print A_molw_test.shape, yV[ test, 0].shape
 		r2_l.append( lr.score( A_molw_test, yV[ test, 0]))
 
-	print 'R^2 mean, std -->', np.mean( r2_l), np.std( r2_l)
+	print('R^2 mean, std -->', np.mean( r2_l), np.std( r2_l))
 
 	return r2_l
 
@@ -557,7 +557,7 @@ def cv_Ridge_Asupervising_molw( xM, yV, s_l, alpha):
 		#print A_molw_test.shape, yV[ test, 0].shape
 		r2_l.append( lr.score( A_molw_test, yV[ test, 0]))
 
-	print 'R^2 mean, std -->', np.mean( r2_l), np.std( r2_l)
+	print('R^2 mean, std -->', np.mean( r2_l), np.std( r2_l))
 
 	return r2_l
 
@@ -584,10 +584,10 @@ def cv_Ridge_Asupervising_2fp( xM1, xM2, yV, s_l, alpha):
 		molwV = np.mat( molw_l).T
 
 		#A_molw = jchem.add_new_descriptor( A, molw_l)
-		print A1.shape, A2.shape, molwV.shape
+		print(A1.shape, A2.shape, molwV.shape)
 		# A_molw = np.concatenate( (A1, A2, molwV), axis = 1)
 		A_molw = np.concatenate( (A1, A2), axis = 1)
-		print A_molw.shape
+		print(A_molw.shape)
 
 		A_molw_train = A_molw[:len(train), :]
 		A_molw_test = A_molw[len(train):, :]
@@ -598,7 +598,7 @@ def cv_Ridge_Asupervising_2fp( xM1, xM2, yV, s_l, alpha):
 		#print A_molw_test.shape, yV[ test, 0].shape
 		r2_l.append( lr.score( A_molw_test, yV[ test, 0]))
 
-	print 'R^2 mean, std -->', np.mean( r2_l), np.std( r2_l)
+	print('R^2 mean, std -->', np.mean( r2_l), np.std( r2_l))
 
 	return r2_l
 
@@ -625,9 +625,9 @@ def cv_Ridge_Asupervising_2fp_molw( xM1, xM2, yV, s_l, alpha):
 		molwV = np.mat( molw_l).T
 
 		#A_molw = jchem.add_new_descriptor( A, molw_l)
-		print A1.shape, A2.shape, molwV.shape
+		print(A1.shape, A2.shape, molwV.shape)
 		A_molw = np.concatenate( (A1, A2, molwV), axis = 1)
-		print A_molw.shape
+		print(A_molw.shape)
 
 		A_molw_train = A_molw[:len(train), :]
 		A_molw_test = A_molw[len(train):, :]
@@ -638,7 +638,7 @@ def cv_Ridge_Asupervising_2fp_molw( xM1, xM2, yV, s_l, alpha):
 		#print A_molw_test.shape, yV[ test, 0].shape
 		r2_l.append( lr.score( A_molw_test, yV[ test, 0]))
 
-	print 'R^2 mean, std -->', np.mean( r2_l), np.std( r2_l)
+	print('R^2 mean, std -->', np.mean( r2_l), np.std( r2_l))
 
 	return r2_l
 
@@ -649,7 +649,7 @@ def gs_Ridge_Asupervising_2fp_molw( xM1, xM2, yV, s_l, alpha_l):
 	"""
 	r2_l2 = list()	
 	for alpha in alpha_l:
-		print alpha
+		print(alpha)
 		r2_l = cv_Ridge_Asupervising_2fp_molw( xM1, xM2, yV, s_l, alpha)
 		r2_l2.append( r2_l)
 	return r2_l2
@@ -657,7 +657,7 @@ def gs_Ridge_Asupervising_2fp_molw( xM1, xM2, yV, s_l, alpha_l):
 def gs_Ridge_Asupervising_molw( xM, yV, s_l, alpha_l):
 	r2_l2 = list()	
 	for alpha in alpha_l:
-		print alpha
+		print(alpha)
 		r2_l = cv_Ridge_Asupervising_molw( xM, yV, s_l, alpha)
 		r2_l2.append( r2_l)
 	return r2_l2
@@ -665,7 +665,7 @@ def gs_Ridge_Asupervising_molw( xM, yV, s_l, alpha_l):
 def gs_Ridge_Asupervising( xM, yV, s_l, alpha_l):
 	r2_l2 = list()	
 	for alpha in alpha_l:
-		print alpha
+		print(alpha)
 		r2_l = cv_Ridge_Asupervising( xM, yV, s_l, alpha)
 		r2_l2.append( r2_l)
 	return r2_l2
@@ -699,7 +699,7 @@ def cv_Ridge_Asupervising( xM, yV, s_l, alpha):
 		#print A_molw_test.shape, yV[ test, 0].shape
 		r2_l.append( lr.score( A_molw_test, yV[ test, 0]))
 
-	print 'R^2 mean, std -->', np.mean( r2_l), np.std( r2_l)
+	print('R^2 mean, std -->', np.mean( r2_l), np.std( r2_l))
 
 	return r2_l
 
@@ -710,27 +710,27 @@ def gs_RidgeByLasso_kf_ext( xM, yV, alphas_log_l):
 	score_l = []
 	for ix, (tr, te) in enumerate( kf5_ext):
 
-		print '{}th fold external validation stage ============================'.format( ix + 1)
+		print('{}th fold external validation stage ============================'.format( ix + 1))
 		xM_in = xM[ tr, :]
 		yV_in = yV[ tr, 0]
 
-		print 'First Ridge Stage'
+		print('First Ridge Stage')
 		gs1 = gs_Lasso( xM_in, yV_in, alphas_log_l[0])
-		print 'Best score:', gs1.best_score_
-		print 'Best param:', gs1.best_params_
-		print gs1.grid_scores_
+		print('Best score:', gs1.best_score_)
+		print('Best param:', gs1.best_params_)
+		print(gs1.grid_scores_)
 
 
 		nz_idx = gs1.best_estimator_.sparse_coef_.indices
 		xM_in_nz = xM_in[ :, nz_idx]
 
-		print 'Second Lasso Stage'
+		print('Second Lasso Stage')
 		gs2 = gs_Ridge( xM_in_nz, yV_in, alphas_log_l[1])
-		print 'Best score:', gs2.best_score_
-		print 'Best param:', gs2.best_params_
-		print gs2.grid_scores_
+		print('Best score:', gs2.best_score_)
+		print('Best param:', gs2.best_params_)
+		print(gs2.grid_scores_)
 
-		print 'External Validation Stage'
+		print('External Validation Stage')
 		# Obtain prediction model by whole data including internal validation data
 		alpha = gs2.best_params_['alpha']
 		clf = linear_model.Ridge( alpha = alpha)
@@ -741,19 +741,19 @@ def gs_RidgeByLasso_kf_ext( xM, yV, alphas_log_l):
 		xM_out_nz = xM_out[:, nz_idx]
 		score = clf.score( xM_out_nz, yV_out)
 
-		print score		
+		print(score)		
 		score_l.append( score)
 
-		print ''
+		print('')
 
-	print 'all scores:', score_l
-	print 'average scores:', np.mean( score_l)
+	print('all scores:', score_l)
+	print('average scores:', np.mean( score_l))
 
 	return score_l
 
 def _gs_SVR_r0( xM, yV, svr_params):
 
-	print xM.shape, yV.shape
+	print(xM.shape, yV.shape)
 
 	clf = svm.SVR()
 	#parmas = {'alpha': np.logspace(1, -1, 9)}
@@ -766,7 +766,7 @@ def _gs_SVR_r0( xM, yV, svr_params):
 
 def gs_SVR( xM, yV, svr_params, n_folds = 5):
 
-	print xM.shape, yV.shape
+	print(xM.shape, yV.shape)
 
 	clf = svm.SVR()
 	#parmas = {'alpha': np.logspace(1, -1, 9)}
@@ -783,7 +783,7 @@ def gs_SVC( xM, yVc, params):
 	whereas yV can include float point values.
 	"""
 
-	print xM.shape, yVc.shape
+	print(xM.shape, yVc.shape)
 
 	clf = svm.SVC()
 	#parmas = {'alpha': np.logspace(1, -1, 9)}
@@ -803,27 +803,27 @@ def gs_SVRByLasso_kf_ext( xM, yV, alphas_log, svr_params):
 	score_l = []
 	for ix, (tr, te) in enumerate( kf5_ext):
 
-		print '{}th fold external validation stage ============================'.format( ix + 1)
+		print('{}th fold external validation stage ============================'.format( ix + 1))
 		xM_in = xM[ tr, :]
 		yV_in = yV[ tr, 0]
 
-		print 'First Ridge Stage'
+		print('First Ridge Stage')
 		gs1 = gs_Lasso( xM_in, yV_in, alphas_log)
-		print 'Best score:', gs1.best_score_
-		print 'Best param:', gs1.best_params_
-		print gs1.grid_scores_
+		print('Best score:', gs1.best_score_)
+		print('Best param:', gs1.best_params_)
+		print(gs1.grid_scores_)
 
 
 		nz_idx = gs1.best_estimator_.sparse_coef_.indices
 		xM_in_nz = xM_in[ :, nz_idx]
 
-		print 'Second Lasso Stage'
+		print('Second Lasso Stage')
 		gs2 = gs_SVR( xM_in_nz, yV_in, svr_params)
-		print 'Best score:', gs2.best_score_
-		print 'Best param:', gs2.best_params_
-		print gs2.grid_scores_
+		print('Best score:', gs2.best_score_)
+		print('Best param:', gs2.best_params_)
+		print(gs2.grid_scores_)
 
-		print 'External Validation Stage'
+		print('External Validation Stage')
 		# Obtain prediction model by whole data including internal validation data
 		C = gs2.best_params_['C']
 		gamma = gs2.best_params_['gamma']
@@ -837,13 +837,13 @@ def gs_SVRByLasso_kf_ext( xM, yV, alphas_log, svr_params):
 		xM_out_nz = xM_out[:, nz_idx]
 		score = clf.score( xM_out_nz, yV_out.A1)
 
-		print score		
+		print(score)		
 		score_l.append( score)
 
-		print ''
+		print('')
 
-	print 'all scores:', score_l
-	print 'average scores:', np.mean( score_l)
+	print('all scores:', score_l)
+	print('average scores:', np.mean( score_l))
 
 	return score_l	
 
@@ -855,28 +855,28 @@ def gs_SVRByLasso( xM, yV, alphas_log, svr_params):
 	score_l = []
 	for ix, (tr, te) in enumerate( kf5_ext):
 
-		print '{}th fold external validation stage ============================'.format( ix + 1)
+		print('{}th fold external validation stage ============================'.format( ix + 1))
 		xM_in = xM[ tr, :]
 		yV_in = yV[ tr, 0]
 
-		print 'First Ridge Stage'
+		print('First Ridge Stage')
 		gs1 = gs_Lasso( xM_in, yV_in, alphas_log)
-		print 'Best score:', gs1.best_score_
-		print 'Best param:', gs1.best_params_
-		print gs1.grid_scores_
+		print('Best score:', gs1.best_score_)
+		print('Best param:', gs1.best_params_)
+		print(gs1.grid_scores_)
 		score1_l.append( gs1.best_score_)
 
 
 		nz_idx = gs1.best_estimator_.sparse_coef_.indices
 		xM_in_nz = xM_in[ :, nz_idx]
 
-		print 'Second Lasso Stage'
+		print('Second Lasso Stage')
 		gs2 = gs_SVR( xM_in_nz, yV_in, svr_params)
-		print 'Best score:', gs2.best_score_
-		print 'Best param:', gs2.best_params_
-		print gs2.grid_scores_
+		print('Best score:', gs2.best_score_)
+		print('Best param:', gs2.best_params_)
+		print(gs2.grid_scores_)
 
-		print 'External Validation Stage'
+		print('External Validation Stage')
 		# Obtain prediction model by whole data including internal validation data
 		C = gs2.best_params_['C']
 		gamma = gs2.best_params_['gamma']
@@ -890,22 +890,22 @@ def gs_SVRByLasso( xM, yV, alphas_log, svr_params):
 		xM_out_nz = xM_out[:, nz_idx]
 		score = clf.score( xM_out_nz, yV_out.A1)
 
-		print score		
+		print(score)		
 		score_l.append( score)
 
-		print ''
+		print('')
 
-	print 'all scores:', score_l
-	print 'average scores:', np.mean( score_l)
+	print('all scores:', score_l)
+	print('average scores:', np.mean( score_l))
 
-	print 'First stage scores', score1_l
-	print 'Average first stage scores', np.mean( score1_l)
+	print('First stage scores', score1_l)
+	print('Average first stage scores', np.mean( score1_l))
 
 	return score_l, score1_l
 
 def gs_ElasticNet( xM, yV, en_params):
 
-	print xM.shape, yV.shape
+	print(xM.shape, yV.shape)
 
 	clf = linear_model.ElasticNet()
 	kf5 = cross_validation.KFold( xM.shape[0], n_folds=5, shuffle=True)
@@ -923,28 +923,28 @@ def gs_SVRByElasticNet( xM, yV, en_params, svr_params):
 	score_l = []
 	for ix, (tr, te) in enumerate( kf5_ext):
 
-		print '{}th fold external validation stage ============================'.format( ix + 1)
+		print('{}th fold external validation stage ============================'.format( ix + 1))
 		xM_in = xM[ tr, :]
 		yV_in = yV[ tr, 0]
 
-		print 'First Ridge Stage'
+		print('First Ridge Stage')
 		gs1 = gs_ElasticNet( xM_in, yV_in, en_params)
-		print 'Best score:', gs1.best_score_
-		print 'Best param:', gs1.best_params_
-		print gs1.grid_scores_
+		print('Best score:', gs1.best_score_)
+		print('Best param:', gs1.best_params_)
+		print(gs1.grid_scores_)
 		score1_l.append( gs1.best_score_)
 
 
 		nz_idx = gs1.best_estimator_.sparse_coef_.indices
 		xM_in_nz = xM_in[ :, nz_idx]
 
-		print 'Second Lasso Stage'
+		print('Second Lasso Stage')
 		gs2 = gs_SVR( xM_in_nz, yV_in, svr_params)
-		print 'Best score:', gs2.best_score_
-		print 'Best param:', gs2.best_params_
-		print gs2.grid_scores_
+		print('Best score:', gs2.best_score_)
+		print('Best param:', gs2.best_params_)
+		print(gs2.grid_scores_)
 
-		print 'External Validation Stage'
+		print('External Validation Stage')
 		# Obtain prediction model by whole data including internal validation data
 		C = gs2.best_params_['C']
 		gamma = gs2.best_params_['gamma']
@@ -958,16 +958,16 @@ def gs_SVRByElasticNet( xM, yV, en_params, svr_params):
 		xM_out_nz = xM_out[:, nz_idx]
 		score = clf.score( xM_out_nz, yV_out.A1)
 
-		print score		
+		print(score)		
 		score_l.append( score)
 
-		print ''
+		print('')
 
-	print 'all scores:', score_l
-	print 'average scores:', np.mean( score_l)
+	print('all scores:', score_l)
+	print('average scores:', np.mean( score_l))
 
-	print 'First stage scores', score1_l
-	print 'Average first stage scores', np.mean( score1_l)
+	print('First stage scores', score1_l)
+	print('Average first stage scores', np.mean( score1_l))
 
 	return score_l, score1_l
 
@@ -979,22 +979,22 @@ def gs_GPByLasso( xM, yV, alphas_log):
 	score_l = []
 	for ix, (tr, te) in enumerate( kf5_ext):
 
-		print '{}th fold external validation stage ============================'.format( ix + 1)
+		print('{}th fold external validation stage ============================'.format( ix + 1))
 		xM_in = xM[ tr, :]
 		yV_in = yV[ tr, 0]
 
-		print 'First Ridge Stage'
+		print('First Ridge Stage')
 		gs1 = gs_Lasso( xM_in, yV_in, alphas_log)
-		print 'Best score:', gs1.best_score_
-		print 'Best param:', gs1.best_params_
-		print gs1.grid_scores_
+		print('Best score:', gs1.best_score_)
+		print('Best param:', gs1.best_params_)
+		print(gs1.grid_scores_)
 		score1_l.append( gs1.best_score_)
 
 
 		nz_idx = gs1.best_estimator_.sparse_coef_.indices
 		xM_in_nz = xM_in[ :, nz_idx]
 
-		print 'Second GP Stage'		
+		print('Second GP Stage')		
 		Xa_in_nz = np.array( xM_in_nz)
 		ya_in = np.array( yV_in)
 
@@ -1017,16 +1017,16 @@ def gs_GPByLasso( xM, yV, alphas_log):
 		r2, rmse = regress_show( ya_out[:,0], ya_out_pred)
 
 		score = r2
-		print score		
+		print(score)		
 		score_l.append( score)
 
-		print ''
+		print('')
 
-	print 'all scores:', score_l
-	print 'average scores:', np.mean( score_l)
+	print('all scores:', score_l)
+	print('average scores:', np.mean( score_l))
 
-	print 'First stage scores', score1_l
-	print 'Average first stage scores', np.mean( score1_l)
+	print('First stage scores', score1_l)
+	print('Average first stage scores', np.mean( score1_l))
 
 	return score_l, score1_l
 
@@ -1050,7 +1050,7 @@ def show_gs_alpha( grid_scores):
 	best_r2_std = r2_std[ best_idx]
 	best_alpha = alphas[ best_idx]
 
-	print "Best: r2(alpha = {0}) -> mean:{1}, std:{2}".format( best_alpha, best_r2_mean, best_r2_std)
+	print("Best: r2(alpha = {0}) -> mean:{1}, std:{2}".format( best_alpha, best_r2_mean, best_r2_std))
 
 """
 Specialized code for extract results
@@ -1058,7 +1058,7 @@ Specialized code for extract results
 
 def gs_Ridge( xM, yV, alphas_log = (1, -1, 9), n_folds = 5, n_jobs = -1):
 
-	print xM.shape, yV.shape
+	print(xM.shape, yV.shape)
 
 	clf = linear_model.Ridge()
 	#parmas = {'alpha': np.logspace(1, -1, 9)}
@@ -1084,7 +1084,7 @@ def gs_Ridge_BIKE( A_list, yV, XX = None, alphas_log = (1, -1, 9), n_folds = 5, 
 	kf_n = cross_validation.KFold( ln, n_folds=n_folds, shuffle=True)
 	gs = grid_search.GridSearchCV( clf, parmas, scoring = 'r2', cv = kf_n, n_jobs = n_jobs)
 	
-	AX_idx = np.array([range( ln)]).T
+	AX_idx = np.array([list(range( ln))]).T
 	gs.fit( AX_idx, yV)
 
 	return gs
@@ -1103,7 +1103,7 @@ def gs_BIKE_Ridge( A_list, yV, alphas_log = (1, -1, 9), X_concat = None, n_folds
 	kf_n = cross_validation.KFold( ln, n_folds=n_folds, shuffle=True)
 	gs = grid_search.GridSearchCV( clf, parmas, scoring = 'r2', cv = kf_n, n_jobs = n_jobs)
 	
-	AX_idx = np.array([range( ln)]).T
+	AX_idx = np.array([list(range( ln))]).T
 	gs.fit( AX_idx, yV)
 
 	return gs
@@ -1114,13 +1114,13 @@ def cv( method, xM, yV, alpha, n_folds = 5, n_jobs = -1, grid_std = None):
 	method can be 'Ridge', 'Lasso'
 	cross validation is performed so as to generate prediction output for all input molecules
 	"""	
-	print xM.shape, yV.shape
+	print(xM.shape, yV.shape)
 
 	clf = getattr( linear_model, method)( alpha = alpha)
 	kf_n = cross_validation.KFold( xM.shape[0], n_folds=n_folds, shuffle=True)
 	yV_pred = cross_validation.cross_val_predict( clf, xM, yV, cv = kf_n, n_jobs = n_jobs)
 
-	print 'The prediction output using cross-validation is given by:'
+	print('The prediction output using cross-validation is given by:')
 	jutil.cv_show( yV, yV_pred, grid_std = grid_std)
 
 	return yV_pred
@@ -1131,10 +1131,10 @@ def cv_Ridge_BIKE( A_list, yV, XX = None, alpha = 0.5, n_folds = 5, n_jobs = -1,
 	ln = A_list[0].shape[0] # ls is the number of molecules.
 	kf_n = cross_validation.KFold( ln, n_folds=n_folds, shuffle=True)
 
-	AX_idx = np.array([range( ln)]).T
+	AX_idx = np.array([list(range( ln))]).T
 	yV_pred = cross_validation.cross_val_predict( clf, AX_idx, yV, cv = kf_n, n_jobs = n_jobs)
 
-	print 'The prediction output using cross-validation is given by:'
+	print('The prediction output using cross-validation is given by:')
 	jutil.cv_show( yV, yV_pred, grid_std = grid_std)
 
 	return yV_pred
@@ -1145,10 +1145,10 @@ def cv_BIKE_Ridge( A_list, yV, alpha = 0.5, XX = None, n_folds = 5, n_jobs = -1,
 	ln = A_list[0].shape[0] # ls is the number of molecules.
 	kf_n = cross_validation.KFold( ln, n_folds=n_folds, shuffle=True)
 
-	AX_idx = np.array([range( ln)]).T
+	AX_idx = np.array([list(range( ln))]).T
 	yV_pred = cross_validation.cross_val_predict( clf, AX_idx, yV, cv = kf_n, n_jobs = n_jobs)
 
-	print 'The prediction output using cross-validation is given by:'
+	print('The prediction output using cross-validation is given by:')
 	jutil.cv_show( yV, yV_pred, grid_std = grid_std)
 
 	return yV_pred	
@@ -1160,8 +1160,8 @@ def topscores( gs):
 	"""
 	top_score = sorted(gs.grid_scores_, key=itemgetter(1), reverse=True)[0]
 	
-	print top_score.parameters
-	print top_score.cv_validation_scores
+	print(top_score.parameters)
+	print(top_score.cv_validation_scores)
 
 	return top_score.parameters, top_score.cv_validation_scores
 
@@ -1173,7 +1173,7 @@ def pd_dataframe( param, scores, descriptor = "Morgan(r=6,nB=4096)", graph = Tru
 	pdw_score["descriptor"] = [ descriptor] * k_KF
 	pdw_score["regularization"] = ["Ridge"] * k_KF
 	pdw_score["alpha"] = [param['alpha']] * k_KF
-	pdw_score["KFold"] = range( 1, k_KF + 1)
+	pdw_score["KFold"] = list(range( 1, k_KF + 1))
 	pdw_score["r2"] = scores
 
 	if graph:
@@ -1189,8 +1189,8 @@ def ridge( xM, yV, alphas_log, descriptor = "Morgan(r=6,nB=4096)", n_folds = 5, 
 
 	pdw_score = pd_dataframe( param, scores, descriptor = descriptor)
 	
-	print 'Ridge(alpha={0}) = {1}'.format( gs.best_params_['alpha'], gs.best_score_)
-	print pdw_score
+	print('Ridge(alpha={0}) = {1}'.format( gs.best_params_['alpha'], gs.best_score_))
+	print(pdw_score)
 
 	return pdw_score
 
